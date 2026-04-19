@@ -5,17 +5,7 @@ import { authenticate, AuthRequest } from '../../middleware/auth';
 const router = Router();
 
 // Mock Disaster Data - In a real app, this would fetch from a National Weather/Disaster API
-const MOCK_ALERTS = [
-  {
-    id: 'd1',
-    type: 'FLOOD',
-    severity: 'CRITICAL',
-    title: 'Flash Flood Warning - Urban Areas',
-    message: 'Extreme precipitation detected. Evacuate to higher ground immediately.',
-    location: 'Regional',
-    timestamp: new Date().toISOString()
-  }
-];
+const MOCK_ALERTS: any[] = [];
 
 // ── GET /api/disaster/alerts ─────────────────────────────────────────────────
 router.get('/alerts', authenticate, async (req: AuthRequest, res) => {

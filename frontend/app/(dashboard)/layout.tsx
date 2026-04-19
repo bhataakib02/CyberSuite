@@ -31,11 +31,26 @@ import {
   ShieldCheck,
   Database,
   BookOpen,
-  Scale
+  Scale,
+  Sun,
+  Moon,
+  LayoutDashboard,
+  Users,
+  UserCircle,
+  AlertTriangle,
+  Flame,
+  History,
+  BarChart3,
+  Lock,
+  Bot,
+  Zap,
+  UserCog,
+  Monitor
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { initSocket, getSocket } from '../../lib/socket';
 import { syncAll } from '../../lib/sync';
+import { ThemeToggle } from '../../components/ThemeToggle';
 import CommandPalette from '../../components/CommandPalette';
 import DisasterBanner from '../../components/DisasterBanner';
 
@@ -49,24 +64,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const allRoles = ['USER', 'ADMIN', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF', 'EMERGENCY_PROFILE'];
 
   const navigation = [
-    // ── Common for all ──────────────────────────────────────────────────────
-    { name: t('dashboard'), href: '/dashboard', icon: Shield, roles: allRoles },
-    { name: t('chat', 'Secure Chat'), href: '/chat', icon: MessageSquare, roles: allRoles },
-    { name: t('identity'), href: '/identity', icon: UserCheck, roles: allRoles },
-    { name: t('files'), href: '/files', icon: FolderLock, roles: allRoles },
-    // ── USER / Individual ──────────────────────────────────────────────────
+    { section: 'SOC Operations', roles: ['ADMIN'] },
+    { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['ADMIN'] },
+    { name: 'Attack Map', href: '/admin/map', icon: Globe, roles: ['ADMIN'] },
+    { name: 'Users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
+    { name: 'Professionals', href: '/admin/professionals', icon: UserCircle, roles: ['ADMIN'] },
+    { name: 'Alerts', href: '/admin/alerts', icon: AlertTriangle, roles: ['ADMIN'] },
+    { name: 'Incidents', href: '/admin/incidents', icon: Flame, roles: ['ADMIN'] },
+    { name: 'Audit Logs', href: '/admin/logs', icon: History, roles: ['ADMIN'] },
+    { name: 'Intelligence Reports', href: '/admin/reports', icon: BarChart3, roles: ['ADMIN'] },
+    { name: 'System Health', href: '/admin/health', icon: Monitor, roles: ['ADMIN'] },
+    { name: 'Policy Engine', href: '/admin/policies', icon: Lock, roles: ['ADMIN'] },
+    { name: 'Automation', href: '/admin/automation', icon: Bot, roles: ['ADMIN'] },
+    
+    { section: 'Personal Security', roles: allRoles },
+    { name: t('dashboard'), href: '/dashboard', icon: Shield, roles: ['USER', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF', 'EMERGENCY_PROFILE'] },
     { name: t('vault'), href: '/vault', icon: Key, roles: ['USER', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF'] },
     { name: t('analyzer'), href: '/analyzer', icon: Activity, roles: ['USER', 'STUDENT', 'ACADEMIC'] },
-    { name: t('warranty'), href: '/warranty', icon: FileText, roles: ['USER'] },
-    { name: t('professionals', 'Professionals'), href: '/professionals', icon: Briefcase, roles: ['USER', 'STUDENT', 'ACADEMIC'] },
-    { name: t('subscriptions', 'Sub Tracker'), href: '/subscriptions', icon: CreditCard, roles: ['USER'] },
-    { name: t('expenses', 'Expense Vault'), href: '/expenses', icon: Receipt, roles: ['USER', 'ACADEMIC'] },
-    { name: t('contracts', 'Digital Signing'), href: '/contracts', icon: FileSignature, roles: ['USER', 'LAWYER', 'ACADEMIC'] },
-    { name: t('transparency', 'Access Logs'), href: '/transparency', icon: ShieldCheck, roles: ['USER'] },
-    { name: t('footprint', 'Identity Footprint'), href: '/footprint', icon: Fingerprint, roles: ['USER', 'STUDENT'] },
-    // ── Student ──────────────────────────────────────────────────────────
+    { name: t('files'), href: '/files', icon: FolderLock, roles: allRoles },
+    
+    { section: 'Identity & Professional', roles: ['USER', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF'] },
+    { name: t('identity'), href: '/identity', icon: UserCheck, roles: allRoles },
+    { name: t('professionals', 'Professional Hub'), href: '/professionals', icon: Briefcase, roles: ['USER', 'STUDENT', 'ACADEMIC'] },
     { name: 'Student Hub', href: '/student', icon: GraduationCap, roles: ['STUDENT', 'USER'] },
-    // ── Academic ──────────────────────────────────────────────────────────
     { name: 'Academic Hub', href: '/academic', icon: BookOpen, roles: ['ACADEMIC'] },
     // ── Doctor / Healthcare ───────────────────────────────────────────────
     { name: t('medical'), href: '/medical', icon: Stethoscope, roles: ['DOCTOR', 'HEALTHCARE_STAFF', 'USER'] },
@@ -75,8 +95,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { name: 'Case Manager', href: '/lawyer', icon: Scale, roles: ['LAWYER'] },
     // ── Emergency ─────────────────────────────────────────────────────────
     { name: 'Emergency ID', href: '/emergency', icon: ShieldAlert, roles: ['EMERGENCY_PROFILE'] },
-    // ── Admin ─────────────────────────────────────────────────────────────
-    { name: 'Admin Intel', href: '/admin', icon: ShieldAlert, roles: ['ADMIN'] },
   ].filter(item => {
     const userRole = (user?.role || 'USER').toUpperCase();
     return item.roles.some(role => role.toUpperCase() === userRole);
@@ -188,29 +206,43 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <span className="text-xl font-bold tracking-tight text-[var(--foreground)]">CYBERSUITE</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-4">
-          <nav className="space-y-1 px-3">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          <nav className="space-y-6 px-3">
+            {navigation.map((item, idx) => {
+              if (item.section) {
+                const hasVisibleItems = navigation.slice(idx + 1).some(n => !n.section && n.roles && n.roles.some(r => user?.role === r || r === 'USER' || r === 'ADMIN'));
+                if (!hasVisibleItems) return null;
+                return (
+                  <div key={item.section} className="pt-4 pb-1">
+                    <p className="px-3 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">
+                      {item.section}
+                    </p>
+                  </div>
+                );
+              }
+
+              const isActive = pathname === item.href || (item.href && pathname.startsWith(item.href + '/'));
+              const hasAccess = item.roles && item.roles.some(r => user?.role === r || r === 'USER' || r === 'ADMIN');
+              if (!hasAccess || !item.href || !item.icon) return null;
+
+              const Icon = item.icon;
+
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isActive
-                      ? 'bg-blue-500/10 text-blue-400'
-                      : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+                  className={`group flex items-center px-3 py-2 text-sm font-bold rounded-xl transition-all ${isActive
+                      ? 'bg-blue-500/10 text-blue-500 shadow-sm'
+                      : 'text-zinc-400 hover:bg-white/5 hover:text-white hover:scale-[1.02] active:scale-[0.98]'
                     }`}
                 >
-                  <item.icon className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${isActive ? 'text-blue-400' : 'text-zinc-500 group-hover:text-white'
+                  <Icon className={`mr-3 flex-shrink-0 h-4 w-4 transition-colors ${isActive ? 'text-blue-500' : 'text-zinc-500 group-hover:text-white'
                     }`} />
                   {item.name}
                 </Link>
               );
             })}
           </nav>
-        </div>
-
         <div className="p-5 border-t border-[var(--border)] bg-black/20">
           <div className="flex items-center gap-4 mb-5">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-600 flex items-center justify-center font-black text-xl text-white shadow-2xl ring-2 ring-white/10 shrink-0">
@@ -228,7 +260,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center px-4 py-3 bg-white/5 hover:bg-red-500/10 hover:text-red-400 text-zinc-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/5 active:scale-95"
+            className="w-full flex items-center justify-center px-4 py-3 bg-white/5 hover:bg-red-500/10 hover:text-red-500 text-zinc-500 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-white/5 hover:border-red-500/20 active:scale-95"
           >
             <LogOut className="w-4 h-4 mr-2" />
             {t('logout', 'Terminate Session')}
@@ -259,22 +291,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const query = e.currentTarget.value.toLowerCase();
-                    const item = navigation.find((n) => n.name.toLowerCase().includes(query));
-                    if (item) router.push(item.href);
+                    const item = navigation.find((n) => !n.section && n.name && n.name.toLowerCase().includes(query));
+                    if (item && item.href) router.push(item.href);
                   }
                 }}
               />
             </div>
 
+            {/* Theme Switcher */}
+            <ThemeToggle />
+
             {/* Language Switcher */}
             <div className="relative">
               <button
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
-                className="text-zinc-400 hover:text-white transition-all hover:scale-110 relative p-2 flex items-center gap-1"
+                className="text-zinc-400 hover:text-white transition-all hover:scale-110 active:scale-95 relative p-2 flex items-center gap-1"
                 title="Change Language"
               >
                 <Globe className="w-5 h-5" />
-                <span className="text-[10px] font-black uppercase">{i18n.language}</span>
+                <span className="text-xs font-black uppercase">{i18n.language}</span>
               </button>
 
               <AnimatePresence>

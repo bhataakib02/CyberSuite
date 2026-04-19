@@ -4,49 +4,73 @@ import { authenticate, requireRole, AuthRequest } from '../../middleware/auth';
 
 const router = Router();
 
-// ── GET /api/admin/stats ──────────────────────────────────────────────────────
-router.get('/stats', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+// ── GET /api/admin/dashboard ──────────────────────────────────────────────────
+router.get('/dashboard', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const last7Days = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const [
       totalUsers,
-      totalVaultEntries,
-      activeSessions,
-      breachChecks,
-      threatLogs,
+      activeUsers,
       newSignupsToday,
       failedLoginsToday,
+      activeSessions,
+      pendingVerifications,
+      activeIncidents,
+      securityStats,
+      liveFeed
     ] = await Promise.all([
       prisma.user.count(),
-      prisma.vaultEntry.count(),
-      prisma.session.count({ where: { isActive: true } }),
-      prisma.activityLog.count({ where: { action: 'BREACH_CHECK' } }),
-      prisma.activityLog.findMany({
-        where: { action: { in: ['LOGIN_FAILURE', 'UNAUTHORIZED_ACCESS', 'BREACH_FOUND'] } },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: { user: { select: { name: true, email: true } } }
-      }),
+      prisma.session.count({ where: { lastUsedAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }, isActive: true } }),
       prisma.user.count({ where: { createdAt: { gte: today } } }),
-      prisma.activityLog.count({
-        where: { action: 'LOGIN_FAILURE', createdAt: { gte: today } }
-      }),
+      prisma.activityLog.count({ where: { action: 'LOGIN_FAILURE', createdAt: { gte: today } } }),
+      prisma.session.count({ where: { isActive: true } }),
+      prisma.professionalProfile.count({ where: { status: 'PENDING' } }),
+      (prisma as any).incident.count({ where: { status: { not: 'RESOLVED' } } }),
+      Promise.all([
+        prisma.user.count({ where: { twoFAEnabled: true } }),
+        prisma.vaultEntry.count({ where: { strength: { lt: 40 } } }),
+        (prisma as any).alert.count({ where: { status: 'NEW' } }),
+      ]),
+      prisma.activityLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 15,
+        include: { user: { select: { name: true, email: true, avatar: true } } }
+      })
     ]);
 
+    // Trend simulation (In a real app, this would be real historical data)
+    const mockTrends = {
+      growth: [120, 145, 134, 168, 189, 210, totalUsers],
+      activity: [500, 620, 480, 710, 850, 920, 1050],
+      alerts: [5, 2, 8, 3, 1, 6, securityStats[2]]
+    };
+
     res.json({
-      totalUsers,
-      totalVaultEntries,
-      activeSessions,
-      breachChecks,
-      recentThreats: threatLogs,
-      newSignupsToday,
-      failedLoginsToday,
+      kpis: {
+        totalUsers,
+        activeUsers,
+        newSignupsToday,
+        failedLoginsToday,
+        activeSessions,
+        pendingVerifications,
+        activeIncidents,
+        systemHealth: 'HEALTHY'
+      },
+      trends: mockTrends,
+      security: {
+        twoFAPercentage: totalUsers > 0 ? Math.round((securityStats[0] / totalUsers) * 100) : 0,
+        weakPasswords: securityStats[1],
+        activeThreats: securityStats[2],
+        riskLevel: securityStats[2] > 10 ? 'HIGH' : securityStats[2] > 5 ? 'MEDIUM' : 'LOW'
+      },
+      liveFeed
     });
   } catch (err) {
-    console.error('Admin stats error:', err);
-    res.status(500).json({ error: 'Failed to fetch admin stats' });
+    console.error('Admin dashboard error:', err);
+    res.status(500).json({ error: 'Failed to fetch SOC dashboard data' });
   }
 });
 
@@ -270,7 +294,7 @@ router.post('/verify-professional/:id', authenticate, requireRole('ADMIN'), asyn
       data: {
         userId: req.user!.userId,
         action: 'ADMIN_PROFESSIONAL_VERIFY',
-        details: `${status} verification for ${profile.user.email} (${profile.type})${reason ? `. Reason: ${reason}` : ''}`,
+        details: `${status} verification for ${(profile as any).user.email} (${(profile as any).type})${reason ? `. Reason: ${reason}` : ''}`,
       }
     });
 
@@ -416,6 +440,72 @@ router.get('/reports', authenticate, requireRole('ADMIN'), async (req: AuthReque
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch reports' });
+  }
+});
+
+// ── GET /api/admin/alerts ─────────────────────────────────────────────────────
+router.get('/alerts', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const alerts = await (prisma as any).alert.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: { user: { select: { name: true, email: true } } }
+    });
+    res.json({ alerts });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch alerts' });
+  }
+});
+
+// ── POST /api/admin/alerts/:id/action ──────────────────────────────────────────
+router.post('/alerts/:id/action', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'RESOLVE', 'IGNORE', 'INCIDENT', 'BLOCK'
+
+    const alert = await (prisma as any).alert.findUnique({ where: { id } });
+    if (!alert) return res.status(404).json({ error: 'Alert not found' });
+
+    let newStatus = 'RESOLVED';
+    if (action === 'IGNORE') newStatus = 'IGNORED';
+    if (action === 'INCIDENT') newStatus = 'CONVERTED';
+
+    await (prisma as any).alert.update({
+      where: { id },
+      data: { status: newStatus }
+    });
+
+    if (action === 'INCIDENT') {
+      await (prisma as any).incident.create({
+        data: {
+          title: `Escalated Alert: ${alert.type}`,
+          description: alert.message,
+          severity: alert.severity,
+          userId: alert.userId,
+          metadata: alert.metadata
+        }
+      });
+    }
+
+    if (action === 'BLOCK' && alert.ipAddress) {
+      // In a real SOC, this would call a firewall API or update a global blacklist
+      console.log(`[SOC] Blocking IP: ${alert.ipAddress}`);
+    }
+
+    await (prisma as any).adminAction.create({
+      data: {
+        adminId: req.user!.userId,
+        action: `ALERT_${action}`,
+        targetType: 'ALERT',
+        targetId: id,
+        details: `Performed ${action} on alert ${id}`,
+        ipAddress: (Array.isArray(req.headers['x-forwarded-for']) ? req.headers['x-forwarded-for'][0] : req.headers['x-forwarded-for']) || req.ip || ''
+      }
+    });
+
+    res.json({ message: `Alert ${action.toLowerCase()}ed successfully` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process alert action' });
   }
 });
 

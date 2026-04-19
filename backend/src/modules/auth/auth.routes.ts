@@ -811,4 +811,16 @@ router.delete('/recovery-backups/:id', authenticate, async (req: AuthRequest, re
   }
 });
 
+router.get('/expenses', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const expenses = await prisma.expense.findMany({
+      where: { userId: req.user!.userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json({ expenses });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch expenses' });
+  }
+});
+
 export default router;

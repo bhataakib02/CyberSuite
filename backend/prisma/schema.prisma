@@ -101,6 +101,8 @@ model User {
   asProfessionalConsultations Consultation[] @relation("ProfessionalConsultations")
   reviews        Review[]
   incidents      Incident[]
+  alerts         Alert[]
+  adminActions   AdminAction[]
 }
 
 model Session {
@@ -412,3 +414,62 @@ model Review {
   comment        String?
   createdAt      DateTime @default(now())
 }
+
+model Alert {
+  id          String   @id @default(uuid())
+  userId      String?
+  type        String   // BRUTE_FORCE, SUSPICIOUS_LOGIN, API_ABUSE, etc.
+  severity    Priority @default(MEDIUM)
+  message     String
+  ipAddress   String?
+  location    String?
+  deviceInfo  String?
+  metadata    Json?
+  status      String   @default("NEW") // NEW, INVESTIGATING, IGNORED, RESOLVED, CONVERTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id])
+}
+
+model AdminAction {
+  id          String   @id @default(uuid())
+  adminId     String
+  action      String   // e.g. "USER_SUSPEND", "POLICY_UPDATE"
+  targetType  String?  // e.g. "USER", "INCIDENT"
+  targetId    String?
+  details     String
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  admin       User     @relation(fields: [adminId], references: [id])
+}
+
+model Policy {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  type        String   // AUTH, DATA, ACCESS
+  rules       Json     // Complex rule configuration
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String?
+  isEnabled   Boolean  @default(false)
+  rules       Json?    // e.g. rollouts for specific roles
+  updatedAt   DateTime @updatedAt
+}
+
+model SystemMetric {
+  id          String   @id @default(uuid())
+  type        String   // CPU, RAM, DISK, DB_LATENCY
+  value       Float
+  unit        String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+}
+
