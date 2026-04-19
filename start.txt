@@ -1,0 +1,27 @@
+Verification Plan
+Automated / Dev Server Tests
+Start backend:
+
+bash
+cd d:/CYBERSUITE/backend && npm run dev
+Confirm: Server running on port 5000 in logs.
+
+Start frontend:
+
+bash
+cd d:/CYBERSUITE/frontend && npm run dev
+Confirm: Ready on http://localhost:3000 in logs.
+
+Database migration:
+
+bash
+cd d:/CYBERSUITE/backend && npx prisma migrate dev
+Confirm: all tables created without error.  
+
+
+taskkill /F /IM node.exe
+
+
+
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess -Force;
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force
