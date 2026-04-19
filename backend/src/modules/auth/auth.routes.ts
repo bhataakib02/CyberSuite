@@ -235,41 +235,47 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 // ── POST /api/auth/refresh ────────────────────────────────────────────────────
 router.post('/refresh', async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) {
-      res.status(401).json({ error: 'No refresh token provided' });
-      return;
-    }
+    const token = req.cookies?.refreshToken;
+    if (!token) { res.status(401).json({ error: 'No refresh token provided' }); return; }
 
-    const payload = verifyRefreshToken(refreshToken);
-    if (!payload) {
-      res.status(401).json({ error: 'Invalid or expired refresh token' });
-      return;
-    }
-
-    const session = await prisma.session.findUnique({
-      where: { id: payload.sessionId },
+    const payload = verifyRefreshToken(token);
+    const session = await prisma.session.findFirst({
+      where: { id: payload.sessionId, refreshToken: token, isActive: true },
       include: { user: true },
     });
-
-    if (!session || session.refreshToken !== refreshToken) {
-      res.status(401).json({ error: 'Session not found or token revoked' });
-      return;
+    
+    if (!session) { 
+      res.status(401).json({ error: 'Session invalid or token revoked' }); 
+      return; 
     }
 
-    const newAccessToken = signAccessToken({
-      userId: session.user.id,
+    const newRefreshToken = signRefreshToken({ userId: session.userId, sessionId: session.id });
+    const accessToken = signAccessToken({
+      userId: session.userId, 
       sessionId: session.id,
-      deviceId: (session as any).deviceId || uuidv4(),
+      deviceId: (session as any).deviceId || uuidv4(), 
       role: session.user.role,
     });
 
-    res.json({ accessToken: newAccessToken });
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { refreshToken: newRefreshToken, lastUsedAt: new Date() },
+    });
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true, 
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.json({ accessToken });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Refresh failed' });
+    console.error('Refresh Error:', err);
+    res.status(401).json({ error: 'Invalid refresh token' });
   }
 });
+
 router.post('/verify-email', async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -341,42 +347,6 @@ router.post('/resend-otp', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to resend code' });
-  }
-});
-
-// ── POST /api/auth/refresh ────────────────────────────────────────────────────
-router.post('/refresh', async (req, res) => {
-  try {
-    const token = req.cookies?.refreshToken;
-    if (!token) { res.status(401).json({ error: 'No refresh token' }); return; }
-
-    const payload = verifyRefreshToken(token);
-    const session = await prisma.session.findFirst({
-      where: { id: payload.sessionId, refreshToken: token, isActive: true },
-      include: { user: true },
-    });
-    if (!session) { res.status(401).json({ error: 'Session invalid' }); return; }
-
-    const newRefreshToken = signRefreshToken({ userId: session.userId, sessionId: session.id });
-    const accessToken = signAccessToken({
-      userId: session.userId, sessionId: session.id,
-      deviceId: uuidv4(), role: session.user.role,
-    });
-
-    await prisma.session.update({
-      where: { id: session.id },
-      data: { refreshToken: newRefreshToken, lastUsedAt: new Date() },
-    });
-
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true, sameSite: 'strict',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.json({ accessToken });
-  } catch {
-    res.status(401).json({ error: 'Invalid refresh token' });
   }
 });
 
