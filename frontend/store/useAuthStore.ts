@@ -19,6 +19,10 @@ interface User {
   notifyWhatsApp?: boolean;
   notifyApp?: boolean;
   isVerified?: boolean;
+  bloodGroup?: string;
+  allergies?: string;
+  emergencyContacts?: string;
+  chronicConditions?: string;
 }
 
 interface AuthState {
