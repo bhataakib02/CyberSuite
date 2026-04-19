@@ -270,7 +270,7 @@ router.post('/verify-professional/:id', authenticate, requireRole('ADMIN'), asyn
     const { status, reason } = req.body; // 'APPROVE' or 'REJECT'
 
     const profile = await prisma.professionalProfile.findUnique({
-      where: { id },
+      where: { id: String(id) },
       include: { user: true }
     });
 
@@ -279,7 +279,7 @@ router.post('/verify-professional/:id', authenticate, requireRole('ADMIN'), asyn
     const newStatus = status === 'APPROVE' ? 'VERIFIED' : 'REJECTED';
 
     await prisma.professionalProfile.update({
-      where: { id },
+      where: { id: String(id) },
       data: { status: newStatus as any }
     });
 

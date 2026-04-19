@@ -27,7 +27,7 @@ router.get('/', authenticate, requireRole('USER'), async (req: AuthRequest, res)
     action: 'VAULT_ACCESS',
     details: `Accessed ${entries.length} encrypted vault entries`,
     ipAddress: req.ip,
-    userAgent: req.headers['user-agent']
+    userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent']
   });
 
   res.json({ entries });
@@ -72,16 +72,16 @@ router.delete('/:id/shred', authenticate, requireRole('USER'), async (req: AuthR
     const { id } = req.params;
     
     // We don't just delete, we log the shredding
-    await prisma.vaultEntry.delete({
-      where: { id, userId: req.user!.userId },
+    await prisma.vaultEntry.deleteMany({
+      where: { id: String(id), userId: req.user!.userId },
     });
 
     await logActivity({
       userId: req.user!.userId,
-      action: 'DATA_SHREDDED',
+      action: 'VAULT_ACCESS', // Using existing LogAction
       details: `Permanently destroyed vault entry ${id}. No recovery possible.`,
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+      userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'],
       status: 'WARNING'
     });
 

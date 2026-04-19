@@ -1,4 +1,4 @@
-import { crypto } from 'crypto';
+import crypto from 'crypto';
 
 export async function verifyOnBlockchain(fileHash: string) {
   // Mock blockchain interaction (e.g., Ethereum or Bitcoin Op_Return)

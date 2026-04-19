@@ -53,7 +53,7 @@ router.post('/grant-access', authenticate, requireRole('USER'), async (req: Auth
   const record = await prisma.medicalRecord.findFirst({ where: { id: recordId, patientId: req.user!.userId } });
   if (!record) { res.status(404).json({ error: 'Record not found' }); return; }
 
-  const doctor = await prisma.user.findFirst({ where: { id: doctorId, role: 'MEDICAL' } });
+  const doctor = await prisma.user.findFirst({ where: { id: doctorId, role: { in: ['DOCTOR', 'HEALTHCARE_STAFF'] } } });
   if (!doctor) { res.status(404).json({ error: 'Doctor not found' }); return; }
 
   const expiresAt = new Date(Date.now() + (expiresInHours || 24) * 60 * 60 * 1000);
@@ -62,7 +62,7 @@ router.post('/grant-access', authenticate, requireRole('USER'), async (req: Auth
 });
 
 // GET /api/medical/doctor-access — Doctor views accessible records
-router.get('/doctor-access', authenticate, requireRole('MEDICAL', 'ADMIN'), async (req: AuthRequest, res) => {
+router.get('/doctor-access', authenticate, requireRole('DOCTOR', 'HEALTHCARE_STAFF', 'ADMIN'), async (req: AuthRequest, res) => {
   const now = new Date();
   const accesses = await prisma.doctorAccess.findMany({
     where: { doctorId: req.user!.userId, expiresAt: { gte: now } },
@@ -91,7 +91,7 @@ router.delete('/revoke-access/:accessId', authenticate, requireRole('USER'), asy
 // GET /api/medical/doctors — List doctors for patient to grant access
 router.get('/doctors', authenticate, async (_req, res) => {
   const doctors = await prisma.user.findMany({
-    where: { role: 'MEDICAL' },
+    where: { role: { in: ['DOCTOR', 'HEALTHCARE_STAFF'] } },
     select: { id: true, name: true, email: true, avatar: true },
   });
   res.json({ doctors });

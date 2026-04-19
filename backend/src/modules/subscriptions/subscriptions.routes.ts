@@ -53,14 +53,16 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const sub = await prisma.subscription.findUnique({ where: { id } });
+    const sub = await prisma.subscription.findFirst({ 
+      where: { id: String(id), userId: req.user!.userId } 
+    });
 
-    if (!sub || sub.userId !== req.user!.userId) {
+    if (!sub) {
       res.status(404).json({ error: 'Subscription not found' });
       return;
     }
 
-    await prisma.subscription.delete({ where: { id } });
+    await prisma.subscription.delete({ where: { id: String(id) } });
     res.json({ message: 'Subscription removed' });
   } catch (err) {
     console.error(err);
