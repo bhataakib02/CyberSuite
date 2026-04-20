@@ -89,6 +89,7 @@ router.get('/users', authenticate, requireRole('ADMIN'), async (req: AuthRequest
       ]
     } : {};
 
+    console.log(`[Admin] Fetching users: search="${search}", page=${page}, limit=${limit}`);
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
@@ -113,8 +114,10 @@ router.get('/users', authenticate, requireRole('ADMIN'), async (req: AuthRequest
       prisma.user.count({ where })
     ]);
 
+    console.log(`[Admin] Found ${users.length} users out of ${total} total`);
     res.json({ users, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) {
+    console.error('Failed to fetch users:', err);
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });

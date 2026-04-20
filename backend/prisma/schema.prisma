@@ -1,4 +1,3 @@
-// This is your Prisma schema file
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,12 +7,447 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                          String               @id @default(uuid())
+  email                       String               @unique
+  name                        String
+  passwordHash                String
+  isVerified                  Boolean              @default(false)
+  twoFASecret                 String?
+  twoFAEnabled                Boolean              @default(false)
+  role                        Role                 @default(USER)
+  publicKey                   String?
+  encPrivateKey               String?
+  avatar                      String?
+  bio                         String?
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+  verificationCode            String?
+  verificationExpires         DateTime?
+  masterPasswordHash          String?
+  masterPasswordSalt          String?
+  recoveryKeyHash             String?
+  resetToken                  String?
+  resetTokenExpires           DateTime?
+  notifyApp                   Boolean              @default(true)
+  notifyEmail                 Boolean              @default(true)
+  notifySMS                   Boolean              @default(false)
+  notifyWhatsApp              Boolean              @default(false)
+  phoneNumber                 String?
+  allergies                   String?
+  bloodGroup                  String?
+  chronicConditions           String?
+  emergencyContacts           String?
+  isActive                    Boolean              @default(true)
+  lastActiveAt                DateTime             @default(now())
+  legacyInactivityDays        Int                  @default(180)
+  allowedCountries            String[]             @default(["*"])
+  riskLevel                   String               @default("LOW")
+  activityLogs                ActivityLog[]
+  adminActions                AdminAction[]
+  alerts                      Alert[]
+  asProfessionalConsultations Consultation[]       @relation("ProfessionalConsultations")
+  consultations               Consultation[]       @relation("UserConsultations")
+  contracts                   Contract[]
+  doctorAccesses              DoctorAccess[]
+  expenses                    Expense[]
+  fileRecords                 FileRecord[]
+  ownedGroups                 Group[]              @relation("GroupOwner")
+  groups                      GroupMember[]
+  incidents                   Incident[]
+  medicalRecords              MedicalRecord[]      @relation("PatientRecords")
+  receivedMessages            Message[]            @relation("ReceivedMessages")
+  sentMessages                Message[]            @relation("SentMessages")
+  notifications               Notification[]
+  professionalProfile         ProfessionalProfile?
+  recoveryBackups             RecoveryBackup[]
+  reminders                   Reminder[]
+  reviews                     Review[]
+  sessions                    Session[]
+  subscriptions               Subscription[]
+  trustedContacts             TrustedContact[]
+  vaultEntries                VaultEntry[]
+  warranties                  Warranty[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  deviceInfo   String
+  ipAddress    String
+  userAgent    String   @default("")
+  refreshToken String   @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime @default(now())
+  deviceId     String?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id               String    @id @default(uuid())
+  senderId         String
+  receiverId       String
+  encryptedMessage String
+  encryptedKey     String
+  iv               String
+  status           MsgStatus @default(SENT)
+  selfDestruct     Boolean   @default(false)
+  destructAt       DateTime?
+  fileUrl          String?
+  fileName         String?
+  fileType         String?
+  createdAt        DateTime  @default(now())
+  receiver         User      @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender           User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model VaultEntry {
+  id            String   @id @default(uuid())
+  userId        String
+  encryptedData String
+  category      String   @default("general")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  strength      Int      @default(0)
+  groupId       String?
+  group         Group?   @relation(fields: [groupId], references: [id])
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Warranty {
+  id           String   @id @default(uuid())
+  userId       String
+  productName  String
+  price        Float    @default(0)
+  purchaseDate DateTime
+  expiryDate   DateTime
+  encFileUrl   String?
+  notes        String?
+  notified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MedicalRecord {
+  id              String          @id @default(uuid())
+  patientId       String
+  fileName        String
+  encFileUrl      String
+  encKeyForOwner  String
+  description     String?
+  recordDate      DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+  doctorAccesses  DoctorAccess[]
+  patient         User            @relation("PatientRecords", fields: [patientId], references: [id], onDelete: Cascade)
+  oneTimeAccesses OneTimeAccess[]
+}
+
+model DoctorAccess {
+  id        String        @id @default(uuid())
+  recordId  String
+  doctorId  String
+  encKey    String
+  expiresAt DateTime
+  grantedAt DateTime      @default(now())
+  doctor    User          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  record    MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model OneTimeAccess {
+  id        String        @id @default(uuid())
+  recordId  String
+  token     String        @unique
+  encKey    String
+  expiresAt DateTime
+  createdAt DateTime      @default(now())
+  record    MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  metadata  Json?
+  status    String   @default("SUCCESS")
+  userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  metadata  Json?
+  priority  Priority @default(MEDIUM)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Reminder {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  description String?
+  remindAt    DateTime
+  category    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FileRecord {
+  id             String   @id @default(uuid())
+  userId         String
+  category       String
+  fileName       String
+  fileSize       Int
+  mimeType       String
+  storagePath    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  blockchainHash String?
+  blockchainTxId String?
+  groupId        String?
+  group          Group?   @relation(fields: [groupId], references: [id])
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  category     String
+  amount       Float
+  currency     String   @default("USD")
+  billingCycle String
+  nextBilling  DateTime
+  isAutoRenew  Boolean  @default(true)
+  remindMe     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TrustedContact {
+  id                String    @id @default(uuid())
+  userId            String
+  email             String
+  name              String
+  type              String    @default("LEGACY")
+  accessGranted     Boolean   @default(false)
+  accessRequestedAt DateTime?
+  createdAt         DateTime  @default(now())
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  amount      Float
+  currency    String   @default("USD")
+  category    String
+  receiptUrl  String?
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RecoveryBackup {
+  id          String   @id @default(uuid())
+  userId      String
+  serviceName String
+  backupCodes String
+  notes       String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Contract {
+  id            String    @id @default(uuid())
+  userId        String
+  title         String
+  contentHash   String
+  signatureHash String?
+  signedAt      DateTime?
+  status        String    @default("PENDING")
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Group {
+  id           String        @id @default(uuid())
+  name         String
+  type         String
+  ownerId      String
+  createdAt    DateTime      @default(now())
+  fileRecords  FileRecord[]
+  owner        User          @relation("GroupOwner", fields: [ownerId], references: [id])
+  members      GroupMember[]
+  vaultEntries VaultEntry[]
+}
+
+model GroupMember {
+  id      String @id @default(uuid())
+  groupId String
+  userId  String
+  role    String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProfessionalProfile {
+  id             String             @id @default(uuid())
+  userId         String             @unique
+  type           String
+  specialization String
+  qualification  String
+  experience     Int
+  fee            Float
+  bio            String?
+  isVerified     Boolean            @default(false)
+  licenseUrl     String?
+  rating         Float              @default(0)
+  availability   Json?
+  createdAt      DateTime           @default(now())
+  status         VerificationStatus @default(PENDING)
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Incident {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  severity    Priority @default(MEDIUM)
+  status      String   @default("OPEN")
+  userId      String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id])
+}
+
+model SecurityRule {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  trigger     String
+  threshold   Int
+  action      String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Consultation {
+  id             String                @id @default(uuid())
+  userId         String
+  professionalId String
+  status         String                @default("PENDING")
+  type           String                @default("CHAT")
+  feePaid        Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  professional   User                  @relation("ProfessionalConsultations", fields: [professionalId], references: [id])
+  user           User                  @relation("UserConsultations", fields: [userId], references: [id])
+  messages       ConsultationMessage[]
+}
+
+model ConsultationMessage {
+  id               String       @id @default(uuid())
+  consultationId   String
+  senderId         String
+  encryptedContent String
+  encryptedKey     String
+  iv               String
+  type             String       @default("TEXT")
+  fileUrl          String?
+  createdAt        DateTime     @default(now())
+  consultation     Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id             String   @id @default(uuid())
+  userId         String
+  professionalId String
+  rating         Int
+  comment        String?
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id])
+}
+
+model Alert {
+  id         String   @id @default(uuid())
+  userId     String?
+  type       String
+  severity   Priority @default(MEDIUM)
+  message    String
+  ipAddress  String?
+  location   String?
+  deviceInfo String?
+  metadata   Json?
+  status     String   @default("NEW")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User?    @relation(fields: [userId], references: [id])
+}
+
+model AdminAction {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  targetType String?
+  targetId   String?
+  details    String
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model Policy {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  type        String
+  rules       Json
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String
+  description String?
+  isEnabled   Boolean  @default(false)
+  rules       Json?
+  updatedAt   DateTime @updatedAt
+}
+
+model SystemMetric {
+  id        String   @id @default(uuid())
+  type      String
+  value     Float
+  unit      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
 enum Role {
   USER
   ADMIN
+  PATIENT
+  DOCTOR
+  MEDICAL
+  PROFESSIONAL
   STUDENT
   ACADEMIC
-  DOCTOR
   LAWYER
   HEALTHCARE_STAFF
   EMERGENCY_PROFILE
@@ -38,438 +472,3 @@ enum Priority {
   HIGH
   CRITICAL
 }
-
-model User {
-  id             String         @id @default(uuid())
-  email          String         @unique
-  name           String
-  phoneNumber    String?        // For SMS/WhatsApp notifications
-  passwordHash   String
-  isVerified     Boolean        @default(false)
-  verificationCode String?
-  verificationExpires DateTime?
-  masterPasswordHash String?
-  masterPasswordSalt String?
-  recoveryKeyHash    String?
-  resetToken         String?
-  resetTokenExpires  DateTime?
-  twoFASecret    String?
-  twoFAEnabled   Boolean        @default(false)
-  role           Role           @default(USER)
-  publicKey      String?        // RSA public key for E2EE
-  encPrivateKey  String?        // AES-encrypted RSA private key
-  avatar         String?
-  bio            String?
-  notifyEmail    Boolean        @default(true)
-  notifySMS      Boolean        @default(false)
-  notifyWhatsApp Boolean        @default(false)
-  notifyApp      Boolean        @default(true)
-  isActive       Boolean        @default(true) // For admin blocking
-
-  // Emergency Digital ID
-  bloodGroup     String?
-  allergies      String?
-  emergencyContacts String?     // JSON or comma-separated
-  chronicConditions String?
-
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  sessions       Session[]
-  sentMessages   Message[]      @relation("SentMessages")
-  receivedMessages Message[]    @relation("ReceivedMessages")
-  vaultEntries   VaultEntry[]
-  warranties     Warranty[]
-  medicalRecords MedicalRecord[] @relation("PatientRecords")
-  doctorAccesses DoctorAccess[]
-  activityLogs   ActivityLog[]
-  notifications  Notification[]
-  reminders      Reminder[]
-  fileRecords    FileRecord[]
-  subscriptions  Subscription[]
-  trustedContacts TrustedContact[]
-  lastActiveAt   DateTime       @default(now())
-  legacyInactivityDays Int       @default(180) // 6 months default
-  groups         GroupMember[]
-  ownedGroups    Group[]        @relation("GroupOwner")
-  allowedCountries String[]      @default(["*"])
-  riskLevel      String         @default("LOW") // LOW, MEDIUM, HIGH
-  recoveryBackups RecoveryBackup[]
-  contracts      Contract[]
-  expenses       Expense[]
-  professionalProfile ProfessionalProfile?
-  consultations  Consultation[] @relation("UserConsultations")
-  asProfessionalConsultations Consultation[] @relation("ProfessionalConsultations")
-  reviews        Review[]
-  incidents      Incident[]
-  alerts         Alert[]
-  adminActions   AdminAction[]
-}
-
-model Session {
-  id           String   @id @default(uuid())
-  userId       String
-  deviceInfo   String
-  deviceId     String?
-  ipAddress    String
-  userAgent    String   @default("")
-  refreshToken String   @unique
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  lastUsedAt   DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Message {
-  id               String    @id @default(uuid())
-  senderId         String
-  receiverId       String
-  encryptedMessage String
-  encryptedKey     String    // AES key encrypted with receiver RSA public key
-  iv               String    // Initialization vector
-  status           MsgStatus @default(SENT)
-  selfDestruct     Boolean   @default(false)
-  destructAt       DateTime?
-  fileUrl          String?   // Encrypted file URL
-  fileName         String?
-  fileType         String?
-  createdAt        DateTime  @default(now())
-  sender           User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver         User      @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-}
-
-model VaultEntry {
-  id            String   @id @default(uuid())
-  userId        String
-  encryptedData String   // Full AES-256-GCM encrypted JSON blob
-  category      String   @default("general")
-  strength      Int      @default(0) // 0-100 score
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  groupId       String?
-  group         Group?   @relation(fields: [groupId], references: [id])
-}
-
-model Warranty {
-  id           String   @id @default(uuid())
-  userId       String
-  productName  String
-  price        Float    @default(0)
-  purchaseDate DateTime
-  expiryDate   DateTime
-  encFileUrl   String?
-  notes        String?
-  notified     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model MedicalRecord {
-  id             String         @id @default(uuid())
-  patientId      String
-  fileName       String
-  encFileUrl     String
-  encKeyForOwner String         // AES key encrypted with patient's RSA public key
-  description    String?
-  recordDate     DateTime       @default(now())
-  createdAt      DateTime       @default(now())
-  patient        User           @relation("PatientRecords", fields: [patientId], references: [id], onDelete: Cascade)
-  doctorAccesses DoctorAccess[]
-  oneTimeAccesses OneTimeAccess[]
-}
-
-model DoctorAccess {
-  id        String        @id @default(uuid())
-  recordId  String
-  doctorId  String
-  encKey    String        // AES key encrypted with doctor's RSA public key
-  expiresAt DateTime
-  grantedAt DateTime      @default(now())
-  record    MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
-  doctor    User          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-}
-
-model OneTimeAccess {
-  id          String        @id @default(uuid())
-  recordId    String
-  token       String        @unique
-  encKey      String        // AES key encrypted with a one-time random key (stored in QR hash)
-  expiresAt   DateTime
-  createdAt   DateTime      @default(now())
-  record      MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
-}
-
-model ActivityLog {
-  id        String   @id @default(uuid())
-  userId    String
-  action    String
-  details   String?
-  ipAddress String?
-  userAgent String?
-  status    String   @default("SUCCESS") // SUCCESS, FAILURE, WARNING
-  metadata  Json?    // For flexible extra data (threat levels, coordinates, etc)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  title     String
-  message   String
-  type      String   // 'WARRANTY', 'MEDICAL', 'FINANCE', 'SECURITY'
-  priority  Priority @default(MEDIUM)
-  isRead    Boolean  @default(false)
-  metadata  Json?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Reminder {
-  id          String   @id @default(uuid())
-  userId      String
-  title       String
-  description String?
-  remindAt    DateTime
-  category    String   // 'MEDICAL', 'FINANCE', 'LEGAL', 'GENERAL'
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model FileRecord {
-  id             String   @id @default(uuid())
-  userId         String
-  category       String   // LEGAL, STUDENT, IDENTITY, GENERAL
-  fileName       String
-  fileSize       Int
-  mimeType       String
-  storagePath    String   // local path or bucket path
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  groupId        String?
-  group          Group?   @relation(fields: [groupId], references: [id])
-  blockchainHash String?
-  blockchainTxId String?
-}
-
-model Subscription {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name         String
-  category     String   // Entertainment, Software, Utility, Lifestyle
-  amount       Float
-  currency     String   @default("USD")
-  billingCycle String   // MONTHLY, YEARLY
-  nextBilling  DateTime
-  isAutoRenew  Boolean  @default(true)
-  remindMe     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-}
-
-model TrustedContact {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email        String
-  name         String
-  type         String   @default("LEGACY") // LEGACY, EMERGENCY, RECOVERY
-  accessGranted Boolean  @default(false)
-  accessRequestedAt DateTime?
-  createdAt    DateTime @default(now())
-}
-
-model Expense {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String
-  amount       Float
-  currency     String   @default("USD")
-  category     String   // Food, Travel, Medical, Software, etc.
-  receiptUrl   String?  // Encrypted receipt link
-  expenseDate  DateTime @default(now())
-  createdAt    DateTime @default(now())
-}
-
-model RecoveryBackup {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  serviceName  String   // Google, AWS, CyberSuite
-  backupCodes  String   // Encrypted codes
-  notes        String?
-  createdAt    DateTime @default(now())
-}
-
-model Contract {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title        String
-  contentHash  String   // Hash of the document
-  signatureHash String?  // User's digital signature hash
-  signedAt     DateTime?
-  status       String   @default("PENDING") // PENDING, SIGNED, VERIFIED
-  createdAt    DateTime @default(now())
-}
-
-model Group {
-  id           String   @id @default(uuid())
-  name         String
-  type         String   // FAMILY, TEAM
-  ownerId      String
-  owner        User     @relation("GroupOwner", fields: [ownerId], references: [id])
-  members      GroupMember[]
-  vaultEntries VaultEntry[]
-  fileRecords  FileRecord[]
-  createdAt    DateTime @default(now())
-}
-
-model GroupMember {
-  id      String @id @default(uuid())
-  groupId String
-  userId  String
-  role    String // ADMIN, MEMBER
-  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model ProfessionalProfile {
-  id             String             @id @default(uuid())
-  userId         String             @unique
-  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type           String             // DOCTOR, LAWYER, etc.
-  specialization String
-  qualification  String
-  experience     Int                // Years
-  fee            Float
-  bio            String?
-  status         VerificationStatus @default(PENDING)
-  verificationDocs Json?            // Array of metadata about uploaded docs
-  licenseUrl     String?
-  rating         Float              @default(0)
-  availability   Json?              // e.g. { "monday": ["09:00-17:00"] }
-  createdAt      DateTime           @default(now())
-}
-
-model Incident {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  severity    Priority @default(MEDIUM)
-  status      String   @default("OPEN") // OPEN, INVESTIGATING, RESOLVED
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id])
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model SecurityRule {
-  id          String   @id @default(uuid())
-  name        String
-  description String
-  trigger     String   // e.g. "FAILED_LOGINS"
-  threshold   Int
-  action      String   // e.g. "BLOCK_USER"
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-}
-
-model Consultation {
-  id             String   @id @default(uuid())
-  userId         String
-  professionalId String
-  user           User     @relation("UserConsultations", fields: [userId], references: [id])
-  professional   User     @relation("ProfessionalConsultations", fields: [professionalId], references: [id])
-  status         String   @default("PENDING") // PENDING, ACTIVE, COMPLETED, REJECTED
-  type           String   @default("CHAT")    // CHAT, VOICE, VIDEO
-  feePaid        Boolean  @default(false)
-  messages       ConsultationMessage[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model ConsultationMessage {
-  id             String   @id @default(uuid())
-  consultationId String
-  senderId       String
-  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
-  encryptedContent String
-  encryptedKey     String
-  iv               String
-  type             String   @default("TEXT") // TEXT, FILE
-  fileUrl          String?
-  createdAt      DateTime @default(now())
-}
-
-model Review {
-  id             String   @id @default(uuid())
-  userId         String
-  professionalId String
-  user           User     @relation(fields: [userId], references: [id])
-  rating         Int
-  comment        String?
-  createdAt      DateTime @default(now())
-}
-
-model Alert {
-  id          String   @id @default(uuid())
-  userId      String?
-  type        String   // BRUTE_FORCE, SUSPICIOUS_LOGIN, API_ABUSE, etc.
-  severity    Priority @default(MEDIUM)
-  message     String
-  ipAddress   String?
-  location    String?
-  deviceInfo  String?
-  metadata    Json?
-  status      String   @default("NEW") // NEW, INVESTIGATING, IGNORED, RESOLVED, CONVERTED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User?    @relation(fields: [userId], references: [id])
-}
-
-model AdminAction {
-  id          String   @id @default(uuid())
-  adminId     String
-  action      String   // e.g. "USER_SUSPEND", "POLICY_UPDATE"
-  targetType  String?  // e.g. "USER", "INCIDENT"
-  targetId    String?
-  details     String
-  ipAddress   String?
-  createdAt   DateTime @default(now())
-  admin       User     @relation(fields: [adminId], references: [id])
-}
-
-model Policy {
-  id          String   @id @default(uuid())
-  name        String
-  description String
-  type        String   // AUTH, DATA, ACCESS
-  rules       Json     // Complex rule configuration
-  isActive    Boolean  @default(true)
-  createdBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model FeatureFlag {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  description String?
-  isEnabled   Boolean  @default(false)
-  rules       Json?    // e.g. rollouts for specific roles
-  updatedAt   DateTime @updatedAt
-}
-
-model SystemMetric {
-  id          String   @id @default(uuid())
-  type        String   // CPU, RAM, DISK, DB_LATENCY
-  value       Float
-  unit        String
-  metadata    Json?
-  createdAt   DateTime @default(now())
-}
-

@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { 
+  ComposableMap, 
+  Geographies, 
+  Geography, 
+  Line, 
+  Marker 
+} from "react-simple-maps";
+import { 
   Globe, 
   Shield, 
   Activity, 
@@ -17,12 +24,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+
 const ATTACK_VECTORS = [
-  { id: '1', origin: 'Frankfurt, DE', target: 'East-Node-01', type: 'DDoS', severity: 'HIGH', x: 480, y: 150 },
-  { id: '2', origin: 'Shenzhen, CN', target: 'Central-DB', type: 'SQL-Injection', severity: 'CRITICAL', x: 720, y: 220 },
-  { id: '3', origin: 'Sao Paulo, BR', target: 'Auth-Gateway', type: 'Brute Force', severity: 'MEDIUM', x: 280, y: 380 },
-  { id: '4', origin: 'Moscow, RU', target: 'File-Vault-04', type: 'Exfiltration', severity: 'HIGH', x: 550, y: 120 },
-  { id: '5', origin: 'San Jose, US', target: 'Load-Balancer', type: 'Probe', severity: 'LOW', x: 120, y: 180 },
+  { id: '1', origin: 'Frankfurt, DE', target: 'East-Node-01', type: 'DDoS', severity: 'HIGH', from: [8.6821, 50.1109], to: [0, 0] },
+  { id: '2', origin: 'Shenzhen, CN', target: 'Central-DB', type: 'SQL-Injection', severity: 'CRITICAL', from: [114.0579, 22.5431], to: [0, 0] },
+  { id: '3', origin: 'Sao Paulo, BR', target: 'Auth-Gateway', type: 'Brute Force', severity: 'MEDIUM', from: [-46.6333, -23.5505], to: [0, 0] },
+  { id: '4', origin: 'Moscow, RU', target: 'File-Vault-04', type: 'Exfiltration', severity: 'HIGH', from: [37.6173, 55.7558], to: [0, 0] },
+  { id: '5', origin: 'San Jose, US', target: 'Load-Balancer', type: 'Probe', severity: 'LOW', from: [-121.8863, 37.3382], to: [0, 0] },
 ];
 
 export default function AttackMapPage() {
@@ -67,36 +76,66 @@ export default function AttackMapPage() {
         </div>
       </div>
 
-      <div className="relative aspect-[16/9] w-full bg-zinc-900/40 border border-white/5 rounded-[3rem] overflow-hidden backdrop-blur-xl group">
-        <svg viewBox="0 0 1000 500" className="absolute inset-0 w-full h-full opacity-20 transition-opacity group-hover:opacity-30">
-          <path fill="#1e293b" d="M150,150 L180,130 L220,140 L250,180 L230,220 L190,240 L160,220 Z" />
-          <path fill="#1e293b" d="M450,120 L480,100 L550,110 L580,150 L560,200 L510,220 L460,190 Z" />
-          <path fill="#1e293b" d="M700,180 L750,160 L850,200 L880,250 L840,300 L750,320 L720,260 Z" />
-          <path fill="#1e293b" d="M250,320 L300,300 L350,350 L340,420 L280,450 L240,400 Z" />
-          <g stroke="#ffffff" strokeWidth="0.5" opacity="0.1">
-            {Array.from({ length: 20 }).map((_, i) => (<line key={`v-${i}`} x1={i * 50} y1="0" x2={i * 50} y2="500" />))}
-            {Array.from({ length: 10 }).map((_, i) => (<line key={`h-${i}`} x1="0" y1={i * 50} x2="1000" y2={i * 50} />))}
-          </g>
-        </svg>
+      <div className="relative aspect-[16/9] w-full bg-black/40 border border-white/5 rounded-[3rem] overflow-hidden backdrop-blur-xl group">
+        <div className="absolute inset-0 opacity-40">
+          <ComposableMap projectionConfig={{ scale: 180 }}>
+            <Geographies geography={geoUrl}>
+              {({ geographies }) =>
+                geographies.map((geo) => (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill="#1e293b"
+                    stroke="#334155"
+                    strokeWidth={0.5}
+                    style={{
+                      default: { outline: "none" },
+                      hover: { fill: "#334155", outline: "none" },
+                      pressed: { outline: "none" },
+                    }}
+                  />
+                ))
+              }
+            </Geographies>
+            {attacks.map((attack) => (
+              <g key={attack.id}>
+                <Line
+                  from={attack.from as any}
+                  to={[0, 20] as any} // Simulated Central HQ
+                  stroke={attack.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b'}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeDasharray="4 4"
+                  className="animate-[dash_2s_linear_infinite]"
+                />
+                <Marker coordinates={attack.from as any}>
+                  <circle r={4} fill={attack.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b'} />
+                  <motion.circle
+                    r={8}
+                    fill={attack.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b'}
+                    initial={{ scale: 0, opacity: 1 }}
+                    animate={{ scale: 2, opacity: 0 }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                </Marker>
+              </g>
+            ))}
+            <Marker coordinates={[0, 20]}>
+              <circle r={6} fill="#3b82f6" className="animate-pulse" />
+              <motion.circle
+                r={12}
+                fill="#3b82f6"
+                initial={{ scale: 0, opacity: 1 }}
+                animate={{ scale: 2, opacity: 0 }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </Marker>
+          </ComposableMap>
+        </div>
 
         {scanning && (
           <motion.div initial={{ left: '-20%' }} animate={{ left: '120%' }} transition={{ duration: 2, ease: "linear" }} className="absolute top-0 bottom-0 w-32 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent skew-x-12 pointer-events-none z-10" />
         )}
-
-        <div className="absolute inset-0 pointer-events-none">
-          <svg viewBox="0 0 1000 500" className="w-full h-full">
-            <AnimatePresence>
-              {attacks.map((attack) => (
-                <g key={attack.id}>
-                  <motion.circle initial={{ r: 0, opacity: 0 }} animate={{ r: [0, 10, 0], opacity: [0, 0.8, 0] }} transition={{ duration: 2, repeat: Infinity }} cx={attack.x} cy={attack.y} className={attack.severity === 'CRITICAL' ? 'fill-red-500' : 'fill-amber-500'} />
-                  <circle cx={attack.x} cy={attack.y} r="2" fill="white" />
-                  <circle cx="500" cy="250" r="4" fill="#3b82f6" className="animate-pulse" />
-                  <motion.path initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 0.4 }} transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 1 }} d={`M${attack.x},${attack.y} Q${(attack.x + 500)/2},${Math.min(attack.y, 250) - 50} 500,250`} stroke={attack.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b'} strokeWidth="1.5" fill="none" strokeDasharray="4 4" />
-                </g>
-              ))}
-            </AnimatePresence>
-          </svg>
-        </div>
 
         <div className="absolute top-8 left-8 space-y-4">
            <div className="p-4 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 w-64">
@@ -130,6 +169,14 @@ export default function AttackMapPage() {
         <AttackSummary label="Blocked" value="842" trend="+14" icon={Lock} color="amber" />
         <AttackSummary label="Zones" value="12" trend="Fixed" icon={MapPin} color="purple" />
       </div>
+      
+      <style jsx global>{`
+        @keyframes dash {
+          to {
+            stroke-dashoffset: -20;
+          }
+        }
+      `}</style>
     </div>
   );
 }

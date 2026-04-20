@@ -8,7 +8,7 @@ const router = Router();
 const MOCK_ALERTS: any[] = [];
 
 // ── GET /api/disaster/alerts ─────────────────────────────────────────────────
-router.get('/alerts', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts', async (req, res) => {
   try {
     // In production, fetch from external API and filter by user location
     res.json({ alerts: MOCK_ALERTS });
