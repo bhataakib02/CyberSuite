@@ -20,14 +20,14 @@ export default function DisasterBanner() {
       const res = await apiFetch('/disaster/alerts');
       if (res.ok) {
         const data = await res.json();
-        setAlerts(data.alerts);
+        setAlerts(data.alerts || []);
       }
     } catch (err) {
       console.error('Failed to fetch disaster alerts');
     }
   };
 
-  if (alerts.length === 0 || dismissed) return null;
+  if (!alerts || alerts.length === 0 || dismissed) return null;
 
   const mainAlert = alerts[0];
 
