@@ -39,7 +39,15 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
       });
 
       if (refreshRes.ok) {
-        const { accessToken: newAccessToken } = await refreshRes.json();
+        const jsonRes = await refreshRes.json();
+        const newAccessToken = jsonRes.data?.accessToken || jsonRes.accessToken;
+        
+        if (!newAccessToken) {
+          logout();
+          window.location.href = '/login';
+          return response;
+        }
+
         setAccessToken(newAccessToken);
 
         // Retry the original request with the new token
