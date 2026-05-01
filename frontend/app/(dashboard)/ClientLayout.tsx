@@ -102,6 +102,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return item.roles.some(role => role.toUpperCase() === userRole);
   });
 
+  // Auto-redirect admin to /admin panel
+  useEffect(() => {
+    if (user?.role === 'ADMIN' && pathname === '/dashboard') {
+      router.replace('/admin');
+    }
+  }, [user?.role, pathname, router]);
+
   const languages = [
     { code: 'en', name: 'English', flag: '🇺🇸' },
     { code: 'hi', name: 'हिंदी', flag: '🇮🇳' },
@@ -211,7 +218,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <nav className="space-y-6 px-3">
             {navigation.map((item, idx) => {
               if (item.section) {
-                const hasVisibleItems = navigation.slice(idx + 1).some(n => !n.section && n.roles && n.roles.some(r => user?.role === r || r === 'USER' || r === 'ADMIN'));
+                const userRole = (user?.role || 'USER').toUpperCase();
+                const hasVisibleItems = navigation.slice(idx + 1).some(n => !n.section && n.roles && n.roles.some(r => r.toUpperCase() === userRole));
                 if (!hasVisibleItems) return null;
                 return (
                   <div key={item.section} className="pt-4 pb-1">
@@ -223,7 +231,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               }
 
               const isActive = pathname === item.href || (item.href && pathname.startsWith(item.href + '/'));
-              const hasAccess = item.roles && item.roles.some(r => user?.role === r || r === 'USER' || r === 'ADMIN');
+              const userRole = (user?.role || 'USER').toUpperCase();
+              const hasAccess = item.roles && item.roles.some(r => r.toUpperCase() === userRole);
               if (!hasAccess || !item.href || !item.icon) return null;
 
               const Icon = item.icon;

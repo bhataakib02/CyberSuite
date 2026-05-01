@@ -70,14 +70,14 @@ export default function DashboardOverview() {
   }, []);
 
   const getRoleBranding = () => {
-    switch (user?.role) {
+    switch (user?.role || 'USER') {
       case 'ADMIN': return { title: 'Intelligence', span: 'Monitor', icon: ShieldAlert, color: 'blue' };
       case 'MEDICAL': return { title: 'Clinical', span: 'Command', icon: Stethoscope, color: 'emerald' };
       case 'PROFESSIONAL': return { title: 'Jurisdictional', span: 'Vault', icon: Scale, color: 'amber' };
       case 'PATIENT': return { title: 'Life', span: 'Protocol', icon: Heart, color: 'red' };
       case 'USER': 
-        if (user.email.includes('scholar')) return { title: 'Scholar', span: 'Toolkit', icon: GraduationCap, color: 'purple' };
-        if (user.email.includes('faculty')) return { title: 'Academic', span: 'Node', icon: BookOpen, color: 'indigo' };
+        if (user?.email?.includes('scholar')) return { title: 'Scholar', span: 'Toolkit', icon: GraduationCap, color: 'purple' };
+        if (user?.email?.includes('faculty')) return { title: 'Academic', span: 'Node', icon: BookOpen, color: 'indigo' };
         return { title: 'Command', span: 'Center', icon: Fingerprint, color: 'blue' };
       default: return { title: 'Command', span: 'Center', icon: Fingerprint, color: 'blue' };
     }
@@ -103,7 +103,7 @@ export default function DashboardOverview() {
             </motion.h1>
           </div>
           <p className="text-zinc-500 text-lg font-bold uppercase tracking-widest pl-1">
-            Status: <span className="text-emerald-500">Optimal</span> • Role: <span className="text-white">{user?.role}</span>
+            Status: <span className="text-emerald-500">Optimal</span> • Role: <span className="text-white">{user?.role || 'USER'}</span>
           </p>
         </div>
 
@@ -124,7 +124,7 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         {activeTab === 'CORE' ? (
           <motion.div 
             key="core"
@@ -152,7 +152,7 @@ export default function DashboardOverview() {
 
             {/* Core Feed and Quick Deployment */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-              <div className="lg:col-span-8 space-y-8">
+              <div className="lg:col-span-8 space-y-8 min-w-0">
                 <div className="bg-zinc-900/40 border border-white/5 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
                    <div className="flex items-center justify-between mb-8">
@@ -210,14 +210,14 @@ export default function DashboardOverview() {
                    </div>
                 </div>
               </div>
-              <div className="lg:col-span-4">
+              <div className="lg:col-span-4 min-w-0">
                 <div className="bg-blue-600 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden">
                   <Fingerprint className="w-12 h-12 text-white/30 mb-6" />
                   <h3 className="text-3xl font-black text-white leading-tight">Identity <br/>Vault</h3>
                   <div className="mt-8 space-y-3">
                     {['Password Manager', 'Digital ID Wallet', 'File Shield'].map(item => (
-                      <button key={item} className="w-full p-4 bg-black/20 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest border border-white/10 text-left flex justify-between items-center group">
-                        {item} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      <button key={item} className="w-full p-4 bg-black/20 rounded-2xl text-[10px] font-black text-white uppercase tracking-widest border border-white/10 text-left flex justify-between items-center group overflow-hidden">
+                        <span className="truncate">{item}</span> <ArrowRight className="w-4 h-4 shrink-0 group-hover:translate-x-1 transition-transform" />
                       </button>
                     ))}
                   </div>
@@ -235,7 +235,7 @@ export default function DashboardOverview() {
           >
             {/* Professional Role Widgets */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-              <div className="lg:col-span-8 space-y-8">
+              <div className="lg:col-span-8 space-y-8 min-w-0">
                 {/* Role Specific Widget */}
                 {user?.role === 'MEDICAL' || user?.role === 'DOCTOR' ? (
                   <div className="bg-zinc-900/40 border border-white/5 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
@@ -326,7 +326,7 @@ export default function DashboardOverview() {
                 )}
               </div>
 
-              <div className="lg:col-span-4 space-y-8">
+              <div className="lg:col-span-4 space-y-8 min-w-0">
                  <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/5 rounded-[3rem] p-8 shadow-2xl">
                     <h3 className="text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8">Role Verified ID</h3>
                     <div className="flex flex-col items-center">
