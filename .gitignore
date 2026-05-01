@@ -40,6 +40,19 @@ pnpm-debug.log*
 .stylelintcache
 .npm
 .yarn
+*.tsbuildinfo
+
+# Generated reports / one-off debug scripts
+eslint_report.json
+lint_output.txt
+check-*.mjs
+check_*.js
+fix-*.mjs
+test-*.mjs
+test_*.js
+verify_*.js
+soc-db-*.mjs
+gen_token.js
 
 # OS Generated Files
 .DS_Store
