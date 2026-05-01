@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import prisma from '../lib/prisma';
 import { sendEmail, sendSMS, sendWhatsApp } from '../lib/messenger';
 import { getIo, getOnlineUserSocketId } from '../modules/chat/chat.socket';
+import { SentinelService } from '../modules/sentinel/sentinel.service';
 
 export function startCronJobs() {
   // Run daily at 9am — check for warranties expiring within 30 days
@@ -223,69 +224,13 @@ export function startCronJobs() {
     }
   });
 
-  // Run every 5 minutes — Breach Monitor (Detect Brute Force / Anomalies)
-  cron.schedule('*/5 * * * *', async () => {
+  // Run every 10 minutes — Sentinel AI Analysis
+  cron.schedule('*/10 * * * *', async () => {
     try {
-      console.log('[Cron] Running Breach Monitor...');
-      const now = new Date();
-      const fifteenMinsAgo = new Date(now.getTime() - 15 * 60 * 1000);
-
-      // 1. Detect brute force (Failed logins by IP)
-      const recentFailedLogins = await prisma.activityLog.groupBy({
-        by: ['ipAddress'],
-        where: {
-          action: 'LOGIN_FAILURE',
-          createdAt: { gte: fifteenMinsAgo },
-          ipAddress: { not: null }
-        },
-        _count: { action: true },
-        having: { action: { _count: { gte: 5 } } }
-      });
-
-      for (const anomaly of recentFailedLogins) {
-        if (!anomaly.ipAddress) continue;
-        
-        // Check if an alert already exists recently for this IP to prevent spam
-        const existingAlert = await (prisma as any).alert.findFirst({
-          where: {
-            ipAddress: anomaly.ipAddress,
-            type: 'BRUTE_FORCE',
-            createdAt: { gte: new Date(now.getTime() - 60 * 60 * 1000) } // 1 hour cooldown
-          }
-        });
-
-        if (!existingAlert) {
-          const alert = await (prisma as any).alert.create({
-            data: {
-              type: 'BRUTE_FORCE',
-              severity: 'HIGH',
-              message: `Detected ${anomaly._count.action} failed login attempts from IP ${anomaly.ipAddress} within 15 minutes.`,
-              ipAddress: anomaly.ipAddress,
-              status: 'NEW'
-            }
-          });
-          
-          // Optionally auto-create an incident for high severity
-          if (anomaly._count.action >= 10) {
-            await (prisma as any).incident.create({
-              data: {
-                title: 'Potential Brute Force Attack',
-                description: `Automated detection: ${anomaly._count.action} failed logins from IP ${anomaly.ipAddress}`,
-                severity: 'HIGH',
-                metadata: { ipAddress: anomaly.ipAddress, alertId: alert.id }
-              }
-            });
-          }
-          
-          // Emit socket event to admin dashboard
-          const io = getIo();
-          if (io) {
-            io.to('admin_room').emit('alert:new', alert);
-          }
-        }
-      }
+      console.log('[Cron] Running Sentinel AI Analysis...');
+      await SentinelService.analyzeRecentLogs(60); // Analyze last 60 minutes
     } catch (err: any) {
-      console.warn('[Cron] Breach Monitor skipped — DB unavailable', err);
+      console.warn('[Cron] Sentinel Analysis skipped — DB unavailable', err);
     }
   });
 

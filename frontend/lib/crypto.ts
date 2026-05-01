@@ -20,6 +20,28 @@ export async function generateRSAKeyPair() {
   };
 }
 
+export async function generateSigningKeyPair() {
+  const keyPair = await window.crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"]
+  );
+
+  const publicKeyBuf = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+  const privateKeyBuf = await window.crypto.subtle.exportKey("pkcs8", keyPair.privateKey);
+
+  return {
+    publicKey: btoa(String.fromCharCode(...new Uint8Array(publicKeyBuf))),
+    privateKey: btoa(String.fromCharCode(...new Uint8Array(privateKeyBuf))),
+    rawKeyPair: keyPair,
+  };
+}
+
 export async function exportCryptoKey(key: CryptoKey): Promise<string> {
   const exported = await window.crypto.subtle.exportKey("raw", key);
   return btoa(String.fromCharCode(...new Uint8Array(exported)));
@@ -70,6 +92,25 @@ export async function rsaDecrypt(encryptedBase64: string, privateKey: CryptoKey)
     encryptedBuf as BufferSource
   );
   return new Uint8Array(decrypted);
+}
+
+export async function rsaSign(dataBuf: Uint8Array, privateKey: CryptoKey) {
+  const signature = await window.crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    privateKey,
+    dataBuf as BufferSource
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(signature)));
+}
+
+export async function rsaVerify(dataBuf: Uint8Array, signatureBase64: string, publicKey: CryptoKey) {
+  const signatureBuf = Uint8Array.from(atob(signatureBase64), c => c.charCodeAt(0));
+  return await window.crypto.subtle.verify(
+    { name: "RSASSA-PKCS1-v1_5" },
+    publicKey,
+    signatureBuf as BufferSource,
+    dataBuf as BufferSource
+  );
 }
 
 export async function generateAESKey() {

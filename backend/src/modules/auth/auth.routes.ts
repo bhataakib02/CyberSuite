@@ -11,8 +11,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { logActivity } from '../../utils/logger';
 import jwt from 'jsonwebtoken';
 import { sendSuccess, sendError } from '../../utils/response';
+import { 
+  getRegistrationOptions, 
+  verifyRegistration, 
+  getAuthenticationOptions, 
+  verifyAuthentication 
+} from '../../utils/webauthn';
+import type { 
+  RegistrationResponseJSON, 
+  AuthenticationResponseJSON 
+} from '@simplewebauthn/types';
 
 const router = Router();
+const challenges = new Map<string, string>(); // Temporary in-memory store for WebAuthn challenges
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12');
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
@@ -794,6 +805,176 @@ router.get('/expenses', authenticate, async (req: AuthRequest, res) => {
     sendSuccess(res, { expenses });
   } catch (err) {
     sendError(res, 'Failed to fetch expenses');
+  }
+});
+
+// ── WebAuthn Registration ───────────────────────────────────────────────────
+router.get('/register-options', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const user = await (prisma.user as any).findUnique({
+      where: { id: req.user!.userId },
+      include: { authenticators: true }
+    });
+
+    if (!user) return sendError(res, 'User not found', 404);
+
+    const options = await getRegistrationOptions({
+      userId: user.id,
+      userName: user.email,
+      userDisplayName: user.name,
+      excludeCredentials: (user as any).authenticators.map((auth: any) => ({
+        id: auth.credentialID,
+        type: 'public-key',
+        transports: auth.transports ? (JSON.parse(auth.transports) as any[]) : undefined,
+      })),
+    });
+
+    challenges.set(`reg_${user.id}`, options.challenge);
+    sendSuccess(res, options);
+  } catch (err) {
+    console.error(err);
+    sendError(res, 'Failed to generate registration options');
+  }
+});
+
+router.post('/register-verify', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const { body } = req.body;
+    const expectedChallenge = challenges.get(`reg_${req.user!.userId}`);
+
+    if (!expectedChallenge) return sendError(res, 'Registration challenge not found or expired', 400);
+
+    const verification = await verifyRegistration({
+      body: body as RegistrationResponseJSON,
+      expectedChallenge,
+    });
+
+    if (verification.verified && verification.registrationInfo) {
+      const { credentialID, credentialPublicKey, counter, credentialDeviceType, credentialBackedUp } = verification.registrationInfo as any;
+
+      await (prisma as any).authenticator.create({
+        data: {
+          credentialID: Buffer.from(credentialID),
+          credentialPublicKey: Buffer.from(credentialPublicKey),
+          counter: BigInt(counter),
+          credentialDeviceType,
+          credentialBackedUp,
+          transports: JSON.stringify(body.response.transports || []),
+          userId: req.user!.userId,
+        },
+      });
+
+      challenges.delete(`reg_${req.user!.userId}`);
+      
+      await prisma.activityLog.create({
+        data: { userId: req.user!.userId, action: 'WEBAUTHN_REGISTER', details: 'New security key registered' },
+      });
+
+      sendSuccess(res, { verified: true });
+    } else {
+      sendError(res, 'Registration verification failed', 400);
+    }
+  } catch (err) {
+    console.error(err);
+    sendError(res, 'Failed to verify registration');
+  }
+});
+
+// ── WebAuthn Authentication ──────────────────────────────────────────────────
+router.post('/login-options', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await (prisma.user as any).findUnique({
+      where: { email },
+      include: { authenticators: true }
+    });
+
+    if (!user) return sendError(res, 'User not found', 404);
+
+    const options = await getAuthenticationOptions({
+      allowCredentials: (user as any).authenticators.map((auth: any) => ({
+        id: auth.credentialID,
+        type: 'public-key',
+        transports: auth.transports ? (JSON.parse(auth.transports) as any[]) : undefined,
+      })),
+    });
+
+    challenges.set(`auth_${user.id}`, options.challenge);
+    sendSuccess(res, { options, userId: user.id });
+  } catch (err) {
+    console.error(err);
+    sendError(res, 'Failed to generate login options');
+  }
+});
+
+router.post('/login-verify', async (req, res) => {
+  try {
+    const { body, userId } = req.body;
+    const expectedChallenge = challenges.get(`auth_${userId}`);
+
+    if (!expectedChallenge) return sendError(res, 'Authentication challenge not found or expired', 400);
+
+    const user = await (prisma.user as any).findUnique({
+      where: { id: userId },
+      include: { authenticators: true }
+    });
+
+    if (!user) return sendError(res, 'User not found', 404);
+
+    const authenticator = (user as any).authenticators.find((auth: any) => 
+      Buffer.from(auth.credentialID).toString('base64url') === body.id
+    );
+
+    if (!authenticator) return sendError(res, 'Authenticator not found', 404);
+
+    const verification = await verifyAuthentication({
+      body: body as AuthenticationResponseJSON,
+      expectedChallenge,
+      authenticator: {
+        credentialID: authenticator.credentialID,
+        credentialPublicKey: authenticator.credentialPublicKey,
+        counter: Number(authenticator.counter),
+        transports: authenticator.transports ? (JSON.parse(authenticator.transports) as any[]) : undefined,
+      },
+    });
+
+    if (verification.verified) {
+      // Update counter
+      await (prisma as any).authenticator.update({
+        where: { id: authenticator.id },
+        data: { counter: BigInt(verification.authenticationInfo.newCounter) },
+      });
+
+      challenges.delete(`auth_${userId}`);
+
+      // Issue tokens (similar to login)
+      const sessionId = uuidv4();
+      const deviceId = uuidv4();
+      const deviceInfo = req.headers['user-agent'] || 'Unknown';
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip || 'Unknown';
+
+      const accessToken = signAccessToken({ userId: user.id, sessionId, deviceId, role: user.role });
+      const refreshToken = signRefreshToken({ userId: user.id, sessionId });
+
+      await prisma.session.create({
+        data: { id: sessionId, userId: user.id, deviceInfo, ipAddress, userAgent: deviceInfo, refreshToken },
+      });
+
+      await prisma.activityLog.create({
+        data: { userId: user.id, action: 'WEBAUTHN_LOGIN', details: `Login via security key from ${ipAddress}`, ipAddress },
+      });
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      sendSuccess(res, { accessToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    } else {
+      sendError(res, 'Authentication verification failed', 400);
+    }
+  } catch (err) {
+    console.error(err);
+    sendError(res, 'Failed to verify login');
   }
 });
 

@@ -68,7 +68,22 @@ model User {
   trustedContacts             TrustedContact[]
   vaultEntries                VaultEntry[]
   warranties                  Warranty[]
+  authenticators              Authenticator[]
 }
+
+model Authenticator {
+  id                   String   @id @default(uuid())
+  credentialID         Bytes    @unique
+  credentialPublicKey  Bytes
+  counter              BigInt
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+}
+
 
 model Session {
   id           String   @id @default(uuid())
@@ -136,6 +151,7 @@ model MedicalRecord {
   encFileUrl            String
   encKeyForOwner        String
   description           String?
+  fhirData              Json?
   blockchainTxId        String?
   blockchainNetwork     String?
   blockchainBlockNumber Int?

@@ -155,9 +155,43 @@ export default function DashboardOverview() {
               <div className="lg:col-span-8 space-y-8">
                 <div className="bg-zinc-900/40 border border-white/5 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
-                   <h2 className="text-2xl font-black text-white tracking-tight mb-8">Recent Security Handshakes</h2>
+                   <div className="flex items-center justify-between mb-8">
+                     <h2 className="text-2xl font-black text-white tracking-tight">Security Handshakes & Hardware</h2>
+                     <button 
+                       onClick={async () => {
+                         try {
+                           // 1. Get options from server
+                           const optionsRes = await apiFetch('/auth/register-options');
+                           const options = await optionsRes.json();
+                           if (!optionsRes.ok) throw new Error(options.error || 'Failed to get options');
+
+                           // 2. Start registration ceremony
+                           const { startRegistration } = await import('@simplewebauthn/browser');
+                           const attResp = await startRegistration(options);
+
+                           // 3. Verify with server
+                           const verifyRes = await apiFetch('/auth/register-verify', {
+                             method: 'POST',
+                             body: JSON.stringify({ body: attResp }),
+                           });
+                           const data = await verifyRes.json();
+                           if (data.verified) {
+                             alert('Security key registered successfully!');
+                             window.location.reload();
+                           } else {
+                             throw new Error(data.error || 'Verification failed');
+                           }
+                         } catch (err: any) {
+                           alert(err.message);
+                         }
+                       }}
+                       className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2"
+                     >
+                       <Plus className="w-4 h-4" /> Add Security Key
+                     </button>
+                   </div>
                    <div className="space-y-4">
-                     {logs.slice(0, 5).map((log, i) => (
+                     {logs.length > 0 ? logs.slice(0, 5).map((log, i) => (
                        <div key={log.id} className="flex items-center gap-6 p-5 bg-black/20 rounded-2xl border border-white/5">
                           <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-500 border border-white/5">
                             <Clock className="w-5 h-5" />
@@ -168,7 +202,11 @@ export default function DashboardOverview() {
                           </div>
                           <p className="text-zinc-600 text-[10px] font-black tabular-nums">{new Date(log.createdAt).toLocaleTimeString()}</p>
                        </div>
-                     ))}
+                     )) : (
+                       <div className="text-center py-10 text-zinc-600 font-bold uppercase tracking-widest text-xs">
+                         No recent activity detected
+                       </div>
+                     )}
                    </div>
                 </div>
               </div>

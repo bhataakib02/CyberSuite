@@ -22,6 +22,7 @@ import {
   Fingerprint
 } from 'lucide-react';
 import { deriveVaultKey, aesEncrypt, aesDecrypt, generateSaltHex, sha256 } from '../../../lib/crypto';
+import { offlineVault } from '../../../lib/vault/offlineVault';
 
 interface DecryptedVaultItem {
   title: string;
@@ -71,6 +72,12 @@ export default function VaultPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState('All');
+  
+  // Legacy Sharding State
+  const [isShardingModalOpen, setIsShardingModalOpen] = useState(false);
+  const [shardThreshold, setShardThreshold] = useState(3);
+  const [shardTotal, setShardTotal] = useState(5);
+  const [isSharding, setIsSharding] = useState(false);
 
   // Vault Auto-Lock (5 min inactivity)
   useEffect(() => {
@@ -106,10 +113,17 @@ export default function VaultPage() {
       const res = await apiFetch('/vault');
       const data = await res.json();
       if (res.ok && data.success) {
-        setItems(data.data.entries || []);
+        const remoteEntries = data.data.entries || [];
+        setItems(remoteEntries);
+        // Sync to offline storage
+        await offlineVault.syncRemoteEntries(remoteEntries);
+      } else {
+        throw new Error('API fetch failed');
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Vault: Offline mode or API error. Falling back to local storage.');
+      const localEntries = await offlineVault.getAllEntries();
+      setItems(localEntries as any[]);
     } finally {
       setIsLoading(false);
     }
@@ -216,6 +230,32 @@ export default function VaultPage() {
       window.location.reload();
     } catch (err: any) {
       setAuthError(err.message);
+    }
+  };
+
+  const handleShardKey = async () => {
+    if (!masterPassword) {
+      alert('Please enter your master password to shard the key.');
+      return;
+    }
+    setIsSharding(true);
+    try {
+      const { SSSService } = await import('../../../lib/crypto/sss');
+      const shares = SSSService.shardSecret(masterPassword, shardTotal, shardThreshold);
+      
+      const res = await apiFetch('/auth/legacy-shard', {
+        method: 'POST',
+        body: JSON.stringify({ shares, threshold: shardThreshold, total: shardTotal }),
+      });
+
+      if (!res.ok) throw new Error('Failed to distribute shards');
+      
+      alert(`Master key successfully sharded into ${shardTotal} parts. Minimum ${shardThreshold} required for recovery.`);
+      setIsShardingModalOpen(false);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSharding(false);
     }
   };
 
@@ -494,6 +534,12 @@ export default function VaultPage() {
             Lock Vault
           </button>
           <button 
+            onClick={() => setIsShardingModalOpen(true)}
+            className="px-6 py-3 bg-zinc-900 border border-white/5 text-blue-400 hover:text-blue-300 hover:border-blue-500/30 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl flex items-center gap-2"
+          >
+            <ShieldAlert className="w-4 h-4" /> Legacy Protocol
+          </button>
+          <button 
             onClick={() => setIsAddModalOpen(true)}
             className="px-6 py-3 bg-blue-600 text-white hover:bg-blue-500 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-600/20 flex items-center gap-2"
           >
@@ -709,6 +755,68 @@ export default function VaultPage() {
                   <button type="submit" className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-600/20 active:scale-95">Encrypt & Store</button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+        {isShardingModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsShardingModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-[var(--card)] border border-[var(--border)] rounded-[2.5rem] p-6 md:p-10 w-full max-w-lg shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600" />
+              <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 mb-6">
+                <ShieldAlert className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-3xl font-black text-white mb-2 tracking-tight">Legacy Sharding</h3>
+              <p className="text-zinc-500 text-sm font-medium mb-8">Shard your master key across your trusted contacts. This allows recovery if you lose your physical keys and password.</p>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-1">Total Shards</label>
+                    <input 
+                      type="number" 
+                      min={2} 
+                      max={10} 
+                      value={shardTotal} 
+                      onChange={e => setShardTotal(parseInt(e.target.value))} 
+                      className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all font-medium" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-1">Threshold (Min to recover)</label>
+                    <input 
+                      type="number" 
+                      min={2} 
+                      max={shardTotal} 
+                      value={shardThreshold} 
+                      onChange={e => setShardThreshold(parseInt(e.target.value))} 
+                      className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all font-medium" 
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                   <p className="text-[10px] font-bold text-blue-400/80 uppercase leading-relaxed italic">
+                     Protocol: Your master password will be split into {shardTotal} cryptographic shards. Shards will be distributed to your {(user as any)?.trustedContacts?.length || 0} verified trusted contacts.
+                   </p>
+                </div>
+
+                <div className="flex gap-4 pt-6">
+                  <button type="button" onClick={() => setIsShardingModalOpen(false)} className="flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-all">Cancel</button>
+                  <button 
+                    onClick={handleShardKey}
+                    disabled={isSharding}
+                    className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-600/20 active:scale-95 disabled:opacity-50"
+                  >
+                    {isSharding ? 'Sharding...' : 'Initiate Sharding'}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

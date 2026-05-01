@@ -23,6 +23,8 @@ interface User {
   allergies?: string;
   emergencyContacts?: string;
   chronicConditions?: string;
+  trustedContacts?: any[];
+  authenticators?: any[];
 }
 
 interface AuthState {

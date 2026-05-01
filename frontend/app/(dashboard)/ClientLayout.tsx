@@ -45,7 +45,8 @@ import {
   Bot,
   Zap,
   UserCog,
-  Monitor
+  Monitor,
+  Target
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { initSocket, getSocket } from '../../lib/socket';
@@ -81,6 +82,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { name: t('dashboard'), href: '/dashboard', icon: Shield, roles: ['USER', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF', 'EMERGENCY_PROFILE'] },
     { name: t('vault'), href: '/vault', icon: Key, roles: ['USER', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF'] },
     { name: t('analyzer'), href: '/analyzer', icon: Activity, roles: ['USER', 'STUDENT', 'ACADEMIC'] },
+    { name: 'Security Health', href: '/security-health', icon: Target, roles: allRoles },
     { name: t('files'), href: '/files', icon: FolderLock, roles: allRoles },
     
     { section: 'Identity & Professional', roles: ['USER', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF'] },

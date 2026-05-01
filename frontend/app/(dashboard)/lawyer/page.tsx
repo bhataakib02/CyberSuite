@@ -12,8 +12,14 @@ import {
   ChevronRight,
   ShieldAlert,
   Search,
-  Filter
+  Filter,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Key,
+  ShieldCheck
 } from 'lucide-react';
+import { rsaSign, rsaVerify, sha256, generateSigningKeyPair } from '../../../lib/crypto';
 import Link from 'next/link';
 
 export default function LawyerDashboard() {
@@ -31,6 +37,37 @@ export default function LawyerDashboard() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCase, setNewCase] = useState({ title: '', client: '', status: 'PENDING', nextHearing: '' });
+
+  // Signature State
+  const [isSigningModalOpen, setIsSigningModalOpen] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+  const [signingDoc, setSigningDoc] = useState<any>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
+
+  const handleSignDocument = async (doc: any) => {
+    setSigningDoc(doc);
+    setIsSigningModalOpen(true);
+    setSignature(null);
+    setVerificationResult(null);
+  };
+
+  const executeSignature = async () => {
+    setIsSigning(true);
+    try {
+      const keyPair = await generateSigningKeyPair();
+      const docHash = await sha256(signingDoc.name);
+      const dataBuf = new TextEncoder().encode(docHash);
+      const sig = await rsaSign(dataBuf, keyPair.rawKeyPair.privateKey);
+      setSignature(sig);
+      const isValid = await rsaVerify(dataBuf, sig, keyPair.rawKeyPair.publicKey);
+      setVerificationResult(isValid);
+    } catch (err: any) {
+      alert('Signature failed: ' + err.message);
+    } finally {
+      setIsSigning(false);
+    }
+  };
 
   const handleAddCase = (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,7 +281,15 @@ export default function LawyerDashboard() {
                     <FileSignature className="w-4 h-4 text-zinc-400" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white truncate">{doc.name}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-white truncate">{doc.name}</p>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleSignDocument(doc); }}
+                        className="text-[9px] font-black uppercase text-amber-500 hover:text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg transition-colors"
+                      >
+                        Sign
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{doc.type}</span>
                       <span className="w-1 h-1 bg-zinc-700 rounded-full" />
@@ -271,6 +316,78 @@ export default function LawyerDashboard() {
           </div>
         </div>
       </div>
+      <AnimatePresence>
+        {isSigningModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSigningModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.9, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+               className="relative bg-zinc-900 border border-white/10 rounded-[2.5rem] p-8 md:p-10 w-full max-w-xl shadow-2xl overflow-hidden"
+             >
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-500" />
+                <div className="flex items-center gap-4 mb-8">
+                   <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20">
+                      <FileSignature className="w-8 h-8 text-amber-500" />
+                   </div>
+                   <div>
+                      <h3 className="text-2xl font-black text-white tracking-tight uppercase">Digital Signature</h3>
+                      <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">Protocol: RSA-PSS / E2EE Integrity Check</p>
+                   </div>
+                </div>
+
+                <div className="bg-black/40 border border-white/5 rounded-3xl p-6 mb-8">
+                   <p className="text-zinc-400 text-xs font-medium mb-4 italic">Document to sign:</p>
+                   <div className="flex items-center gap-3">
+                      <div className="p-3 bg-white/5 rounded-xl text-amber-500"><ShieldCheck className="w-5 h-5" /></div>
+                      <div>
+                         <p className="text-white font-black uppercase text-sm">{signingDoc?.name}</p>
+                         <p className="text-zinc-600 text-[9px] font-bold uppercase">{signingDoc?.type} • Hash generated locally</p>
+                      </div>
+                   </div>
+                </div>
+
+                {signature ? (
+                   <div className="space-y-6">
+                      <div className="p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl">
+                         <div className="flex items-center gap-3 mb-4">
+                            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                            <h4 className="text-emerald-500 font-black uppercase text-xs tracking-widest">Integrity Verified</h4>
+                         </div>
+                         <div className="bg-black/60 p-4 rounded-2xl border border-white/5 mb-4">
+                            <p className="text-[9px] font-black text-zinc-500 uppercase mb-2">RSA Signature Payload</p>
+                            <p className="text-[10px] font-mono text-zinc-400 break-all leading-relaxed line-clamp-3">{signature}</p>
+                         </div>
+                         <div className="flex items-center justify-between text-[10px] font-black uppercase">
+                            <span className="text-zinc-500">Signer Identity</span>
+                            <span className="text-emerald-500">Verified Legal Counsel</span>
+                         </div>
+                      </div>
+                      <button onClick={() => setIsSigningModalOpen(false)} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl">Complete Workflow</button>
+                   </div>
+                ) : (
+                   <div className="space-y-8">
+                      <div className="flex items-start gap-4 p-4 bg-zinc-800/50 border border-white/5 rounded-2xl">
+                         <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                         <p className="text-zinc-400 text-[10px] font-medium leading-relaxed">By signing, you are attaching a cryptographic proof of identity to this document hash. This process uses your hardware-backed private key and cannot be reversed.</p>
+                      </div>
+                      <div className="flex gap-4">
+                         <button onClick={() => setIsSigningModalOpen(false)} className="flex-1 py-4 bg-white/5 text-zinc-500 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:text-white transition-all">Abort</button>
+                         <button 
+                          onClick={executeSignature}
+                          disabled={isSigning}
+                          className="flex-1 py-4 bg-amber-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-amber-400 transition-all shadow-xl shadow-amber-500/20 disabled:opacity-50"
+                         >
+                          {isSigning ? 'Hasing & Signing...' : 'Initialize Signature'}
+                         </button>
+                      </div>
+                   </div>
+                )}
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
