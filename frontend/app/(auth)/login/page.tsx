@@ -8,6 +8,20 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { Eye, EyeOff, ShieldCheck, Fingerprint, Ghost } from 'lucide-react';
 import { startAuthentication } from '@simplewebauthn/browser';
 
+const getDashboardRoute = (role?: string) => {
+  switch (role) {
+    case 'ADMIN': return '/admin';
+    case 'STUDENT': return '/student';
+    case 'ACADEMIC': return '/academic';
+    case 'DOCTOR': 
+    case 'HEALTHCARE_STAFF': 
+    case 'MEDICAL': return '/medical';
+    case 'LAWYER': return '/lawyer';
+    case 'EMERGENCY_PROFILE': return '/emergency';
+    default: return '/dashboard';
+  }
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,13 +50,15 @@ export default function LoginPage() {
         throw new Error(data.error || 'Login failed');
       }
 
-      if (data.require2FA) {
+      if (data.data?.require2FA || data.require2FA) {
         router.push(`/2fa?email=${encodeURIComponent(email)}`);
         return;
       }
 
-      useAuthStore.getState().login(data.user, data.accessToken);
-      router.push('/dashboard');
+      const userData = data.data?.user || data.user;
+      const tokenData = data.data?.accessToken || data.accessToken;
+      useAuthStore.getState().login(userData, tokenData);
+      router.push(getDashboardRoute(userData?.role));
     } catch (err: any) {
       if (err.message === 'Email not verified') {
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
@@ -84,9 +100,12 @@ export default function LoginPage() {
       });
       const data = await verifyRes.json();
 
-      if (data.accessToken) {
-        useAuthStore.getState().login(data.user, data.accessToken);
-        router.push('/dashboard');
+      const tokenData = data.data?.accessToken || data.accessToken;
+      const userData = data.data?.user || data.user;
+
+      if (tokenData) {
+        useAuthStore.getState().login(userData, tokenData);
+        router.push(getDashboardRoute(userData?.role));
       } else {
         throw new Error(data.error || 'Security key authentication failed');
       }

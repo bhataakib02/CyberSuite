@@ -76,9 +76,11 @@ export default function DashboardOverview() {
       case 'PROFESSIONAL': return { title: 'Jurisdictional', span: 'Vault', icon: Scale, color: 'amber' };
       case 'PATIENT': return { title: 'Life', span: 'Protocol', icon: Heart, color: 'red' };
       case 'USER': 
-        if (user?.email?.includes('scholar')) return { title: 'Scholar', span: 'Toolkit', icon: GraduationCap, color: 'purple' };
-        if (user?.email?.includes('faculty')) return { title: 'Academic', span: 'Node', icon: BookOpen, color: 'indigo' };
         return { title: 'Command', span: 'Center', icon: Fingerprint, color: 'blue' };
+      case 'STUDENT':
+        return { title: 'Scholar', span: 'Toolkit', icon: GraduationCap, color: 'purple' };
+      case 'ACADEMIC':
+        return { title: 'Academic', span: 'Node', icon: BookOpen, color: 'indigo' };
       default: return { title: 'Command', span: 'Center', icon: Fingerprint, color: 'blue' };
     }
   };
@@ -107,21 +109,23 @@ export default function DashboardOverview() {
           </p>
         </div>
 
-        {/* Role Switcher */}
-        <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 backdrop-blur-xl">
-          <button 
-            onClick={() => setActiveTab('CORE')}
-            className={`px-6 py-2.5 rounded-xl text-xs md:text-sm font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 ${activeTab === 'CORE' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            {user?.role === 'ADMIN' ? 'Global Status' : 'Core Personal'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('PROFESSIONAL')}
-            className={`px-6 py-2.5 rounded-xl text-xs md:text-sm font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 ${activeTab === 'PROFESSIONAL' ? (user?.role === 'ADMIN' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20') : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            {user?.role === 'ADMIN' ? 'System Intel' : 'Professional Mode'}
-          </button>
-        </div>
+        {/* Role Switcher - Hidden for generic USER */}
+        {user?.role !== 'USER' && (
+          <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl border border-white/5 backdrop-blur-xl">
+            <button 
+              onClick={() => setActiveTab('CORE')}
+              className={`px-6 py-2.5 rounded-xl text-xs md:text-sm font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 ${activeTab === 'CORE' ? 'bg-white/10 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              {user?.role === 'ADMIN' ? 'Global Status' : 'Core Personal'}
+            </button>
+            <button 
+              onClick={() => setActiveTab('PROFESSIONAL')}
+              className={`px-6 py-2.5 rounded-xl text-xs md:text-sm font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 ${activeTab === 'PROFESSIONAL' ? (user?.role === 'ADMIN' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20') : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              {user?.role === 'ADMIN' ? 'System Intel' : 'Professional Mode'}
+            </button>
+          </div>
+        )}
       </div>
 
       <AnimatePresence mode="popLayout">
@@ -284,7 +288,7 @@ export default function DashboardOverview() {
                       ))}
                     </div>
                   </div>
-                ) : user?.email.includes('scholar') ? (
+                ) : user?.role === 'STUDENT' || user?.role === 'ACADEMIC' ? (
                   <div className="bg-zinc-900/40 border border-white/5 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-purple-500" />
                     <h2 className="text-3xl font-black text-white tracking-tight mb-10">Scholar Toolkit</h2>

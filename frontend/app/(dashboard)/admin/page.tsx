@@ -34,12 +34,25 @@ import {
 import { apiFetch } from '../../../lib/api';
 
 interface DashboardData {
-  totalUsers: number;
-  activeSessions: number;
-  totalAlerts: number;
-  activeIncidents: number;
-  recentLogs: any[];
-  telemetry: any[];
+  kpis: {
+    totalUsers: number;
+    activeSessions: number;
+    failedLoginsToday: number;
+    activeIncidents: number;
+    [key: string]: any;
+  };
+  trends: {
+    growth: number[];
+    activity: number[];
+    alerts: number[];
+  };
+  liveFeed: any[];
+  security: {
+    twoFAPercentage: number;
+    weakPasswords: number;
+    activeThreats: number;
+    riskLevel: string;
+  };
 }
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -72,7 +85,7 @@ export default function AdminDashboard() {
       const res = await apiFetch('/admin/dashboard');
       if (res.ok) {
         const d = await res.json();
-        setData(d);
+        setData(d.data || d);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data');
@@ -221,7 +234,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="h-[350px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.trends.growth.map((v, i) => ({ name: `T-${6-i}`, users: v, activity: data.trends.activity[i] }))}>
+                    <AreaChart data={data.trends.growth.map((v: number, i: number) => ({ name: `T-${6-i}`, users: v, activity: data.trends.activity[i] }))}>
                       <defs>
                         <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient>
                         <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
@@ -276,7 +289,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-            {data.liveFeed.map((event, idx) => (
+            {data.liveFeed.map((event: any, idx: number) => (
               <motion.div key={event.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }} className="p-4 bg-black/40 border border-white/5 rounded-2xl group hover:border-blue-500/30 transition-all hover:bg-black/60 shadow-lg">
                 <div className="flex gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-110 ${event.action.includes('FAILURE') || event.action.includes('UNAUTHORIZED') ? 'bg-red-500/10 text-red-500 border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'bg-blue-500/10 text-blue-500 border-blue-500/20'}`}>
