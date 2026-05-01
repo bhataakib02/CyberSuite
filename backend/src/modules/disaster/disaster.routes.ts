@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -11,10 +12,10 @@ const MOCK_ALERTS: any[] = [];
 router.get('/alerts', async (req, res) => {
   try {
     // In production, fetch from external API and filter by user location
-    res.json({ alerts: MOCK_ALERTS });
+    sendSuccess(res, { alerts: MOCK_ALERTS });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch disaster alerts' });
+    sendError(res, 'Failed to fetch disaster alerts');
   }
 });
 
@@ -42,10 +43,10 @@ router.post('/sos', authenticate, async (req: AuthRequest, res) => {
       });
     }
 
-    res.json({ success: true, message: 'SOS broadcasted to emergency network.' });
+    sendSuccess(res, null, 'SOS broadcasted to emergency network.');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'SOS broadcast failed' });
+    sendError(res, 'SOS broadcast failed');
   }
 });
 

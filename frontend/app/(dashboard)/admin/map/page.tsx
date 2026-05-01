@@ -23,6 +23,7 @@ import {
   Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getSocket } from '../../../../lib/socket';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -39,10 +40,39 @@ export default function AttackMapPage() {
   const [scanning, setScanning] = useState(true);
 
   useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.on('alert:new', (alert: any) => {
+      // Create a new attack vector from the alert
+      const newAttack = {
+        id: alert.id,
+        origin: alert.location || alert.ipAddress || 'Unknown',
+        target: 'System-Core',
+        type: alert.type,
+        severity: alert.severity,
+        from: alert.metadata?.coords || [
+          (Math.random() * 360) - 180, // Random longitude
+          (Math.random() * 140) - 70   // Random latitude
+        ],
+        to: [0, 20]
+      };
+
+      setAttacks(prev => [newAttack, ...prev].slice(0, 10)); // Keep last 10
+      setScanning(true);
+      setTimeout(() => setScanning(false), 2000);
+    });
+
+    return () => {
+      socket.off('alert:new');
+    };
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setScanning(true);
       setTimeout(() => setScanning(false), 2000);
-    }, 10000);
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
   Search, 
@@ -11,7 +11,8 @@ import {
   Database,
   FileText,
   Bookmark,
-  Share2
+  Share2,
+  Plus
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -21,6 +22,16 @@ export default function AcademicDashboard() {
     { id: 'RP-02', title: 'Post-Quantum Cryptography Benchmarks', journal: 'ACM CCS', status: 'UNDER_REVIEW', date: '2026-04-05' },
     { id: 'RP-03', title: 'Homomorphic Encryption for EHRs', journal: 'Drafting', status: 'DRAFT', date: '2026-04-18' },
   ]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newPaper, setNewPaper] = useState({ title: '', journal: '', status: 'DRAFT', date: new Date().toISOString().split('T')[0] });
+
+  const handleAddPaper = (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = `RP-${Math.floor(Math.random() * 90) + 10}`;
+    setResearchPapers([{ id, ...newPaper }, ...researchPapers]);
+    setShowAddModal(false);
+    setNewPaper({ title: '', journal: '', status: 'DRAFT', date: new Date().toISOString().split('T')[0] });
+  };
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
@@ -34,12 +45,106 @@ export default function AcademicDashboard() {
           <p className="text-zinc-500 font-medium tracking-wide">Secure repository for research data and publications.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2 shadow-xl shadow-purple-600/20"
+          >
+            <Plus className="w-4 h-4" />
+            New Research Paper
+          </button>
           <Link href="/files" className="bg-purple-500/10 border border-purple-500/20 text-purple-400 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-purple-500/20 transition-all flex items-center gap-2">
             <Database className="w-4 h-4" />
             Research Vault
           </Link>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full" />
+              
+              <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-6">Log New Publication</h2>
+              
+              <form onSubmit={handleAddPaper} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Paper Title</label>
+                  <input 
+                    required
+                    value={newPaper.title}
+                    onChange={e => setNewPaper({...newPaper, title: e.target.value})}
+                    placeholder="Research Title"
+                    className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Journal / Conference</label>
+                  <input 
+                    required
+                    value={newPaper.journal}
+                    onChange={e => setNewPaper({...newPaper, journal: e.target.value})}
+                    placeholder="e.g. Nature, IEEE"
+                    className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Submission Date</label>
+                    <input 
+                      type="date"
+                      required
+                      value={newPaper.date}
+                      onChange={e => setNewPaper({...newPaper, date: e.target.value})}
+                      className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Status</label>
+                    <select 
+                      value={newPaper.status}
+                      onChange={e => setNewPaper({...newPaper, status: e.target.value})}
+                      className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all appearance-none"
+                    >
+                      <option value="DRAFT">DRAFT</option>
+                      <option value="UNDER_REVIEW">UNDER REVIEW</option>
+                      <option value="PUBLISHED">PUBLISHED</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 px-6 py-4 rounded-2xl bg-white/5 text-zinc-400 font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 px-6 py-4 rounded-2xl bg-purple-600 text-white font-black uppercase tracking-widest text-[10px] hover:bg-purple-500 transition-all"
+                  >
+                    Log Paper
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Publications */}
@@ -133,7 +238,10 @@ export default function AcademicDashboard() {
               ))}
             </div>
             
-            <button className="w-full mt-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all flex items-center justify-center gap-2">
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="w-full mt-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all flex items-center justify-center gap-2"
+            >
               <FileText className="w-3 h-3 text-purple-500" />
               New Draft
             </button>
@@ -143,3 +251,4 @@ export default function AcademicDashboard() {
     </div>
   );
 }
+

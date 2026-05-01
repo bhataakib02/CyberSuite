@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -19,10 +20,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
       _sum: { amount: true }
     });
 
-    res.json({ expenses, summary });
+    sendSuccess(res, { expenses, summary });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch expenses' });
+    sendError(res, 'Failed to fetch expenses');
   }
 });
 
@@ -41,10 +42,10 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
         expenseDate: expenseDate ? new Date(expenseDate) : new Date()
       }
     });
-    res.json({ expense });
+    sendSuccess(res, { expense });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to add expense' });
+    sendError(res, 'Failed to add expense');
   }
 });
 

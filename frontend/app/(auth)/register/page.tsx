@@ -52,7 +52,7 @@ export default function RegisterPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      router.push(`/verify?email=${encodeURIComponent(email)}`);
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message);
       fetchCaptcha(); // Refresh captcha on failure

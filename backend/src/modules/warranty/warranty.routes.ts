@@ -6,6 +6,7 @@ import fs from 'fs';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 const uploadDir = process.env.UPLOAD_DIR || './uploads/warranty';
@@ -31,7 +32,7 @@ router.get('/', authenticate, requireRole('USER'), async (req: AuthRequest, res)
     where: { userId: req.user!.userId },
     orderBy: { expiryDate: 'asc' },
   });
-  res.json({ items });
+  sendSuccess(res, { items });
 });
 
 // POST /api/warranty
@@ -41,7 +42,7 @@ router.post('/', authenticate, requireRole('USER'), upload.single('bill'), async
       ...req.body,
       price: req.body.price,
     });
-    if (!parsed.success) { res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() }); return; }
+    if (!parsed.success) { sendError(res, 'Validation failed', 400, JSON.stringify(parsed.error.flatten())); return; }
 
     const { productName, price, purchaseDate, expiryDate, notes } = parsed.data;
     const encFileUrl = req.file ? `/uploads/warranty/${req.file.filename}` : undefined;
@@ -57,10 +58,10 @@ router.post('/', authenticate, requireRole('USER'), upload.single('bill'), async
         notes,
       },
     });
-    res.status(201).json({ item });
+    sendSuccess(res, { item }, undefined, 201);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to add warranty' });
+    sendError(res, 'Failed to add warranty');
   }
 });
 
@@ -73,7 +74,7 @@ router.delete('/:id', authenticate, requireRole('USER'), async (req: AuthRequest
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
   await prisma.warranty.delete({ where: { id: String(req.params.id) } });
-  res.json({ message: 'Deleted' });
+  sendSuccess(res, null, 'Deleted');
 });
 
 // GET /api/warranty/expiring — items expiring in next 30 days
@@ -83,7 +84,7 @@ router.get('/expiring', authenticate, requireRole('USER'), async (req: AuthReque
   const items = await prisma.warranty.findMany({
     where: { userId: req.user!.userId, expiryDate: { gte: now, lte: in30 } },
   });
-  res.json({ items });
+  sendSuccess(res, { items });
 });
 
 export default router;

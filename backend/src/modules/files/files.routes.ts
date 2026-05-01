@@ -4,6 +4,8 @@ import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
 import path from 'path';
 import fs from 'fs';
+import { sendSuccess, sendError } from '../../utils/response';
+import { shredFile } from '../../utils/shredder';
 
 const router = Router();
 
@@ -34,12 +36,12 @@ router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequ
     const { category, fileName } = req.body; // e.g. STUDENT, LEGAL, IDENTITY
 
     if (!file) {
-      res.status(400).json({ error: 'No file provided' });
+      sendError(res, 'No file provided', 400);
       return;
     }
     
     if (!category) {
-      res.status(400).json({ error: 'Category is required' });
+      sendError(res, 'Category is required', 400);
       return;
     }
 
@@ -62,10 +64,10 @@ router.post('/upload', authenticate, upload.single('file'), async (req: AuthRequ
       }
     });
 
-    res.status(201).json({ message: 'File securely uploaded', file: fileRecord });
+    sendSuccess(res, fileRecord, 'File securely uploaded', 201);
   } catch (err) {
     console.error('File upload error:', err);
-    res.status(500).json({ error: 'Failed to upload file' });
+    sendError(res, 'Failed to upload file');
   }
 });
 
@@ -77,10 +79,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json({ files });
+    sendSuccess(res, { files });
   } catch (err) {
     console.error('Fetch files error:', err);
-    res.status(500).json({ error: 'Failed to fetch files' });
+    sendError(res, 'Failed to fetch files');
   }
 });
 
@@ -92,21 +94,23 @@ router.get('/download/:id', authenticate, async (req: AuthRequest, res) => {
       where: { id: String(id) }
     });
 
+
+
     if (!fileRecord || fileRecord.userId !== req.user!.userId) {
-      res.status(404).json({ error: 'File not found' });
+      sendError(res, 'File not found', 404);
       return;
     }
 
     const filePath = path.join(__dirname, '../../../../uploads', fileRecord.storagePath);
     if (!fs.existsSync(filePath)) {
-      res.status(404).json({ error: 'File data not found on server' });
+      sendError(res, 'File data not found on server', 404);
       return;
     }
 
     res.download(filePath, fileRecord.fileName);
   } catch (err) {
     console.error('Download file error:', err);
-    res.status(500).json({ error: 'Failed to download file' });
+    sendError(res, 'Failed to download file');
   }
 });
 
@@ -119,7 +123,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
     });
 
     if (!fileRecord || fileRecord.userId !== req.user!.userId) {
-      res.status(404).json({ error: 'File not found' });
+      sendError(res, 'File not found', 404);
       return;
     }
 
@@ -140,10 +144,49 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
       }
     });
 
-    res.json({ message: 'File deleted successfully' });
+    sendSuccess(res, null, 'File deleted successfully');
   } catch (err) {
     console.error('Delete file error:', err);
-    res.status(500).json({ error: 'Failed to delete file' });
+    sendError(res, 'Failed to delete file');
+  }
+});
+
+// POST /api/files/:id/shred
+router.post('/:id/shred', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const fileRecord = await prisma.fileRecord.findUnique({
+      where: { id: String(id) }
+    });
+
+    if (!fileRecord || fileRecord.userId !== req.user!.userId) {
+      sendError(res, 'File not found', 404);
+      return;
+    }
+
+    const filePath = path.join(__dirname, '../../../../uploads', fileRecord.storagePath);
+    
+    // Securely shred the file
+    if (fs.existsSync(filePath)) {
+      await shredFile(filePath, 3); // 3 passes
+    }
+
+    await prisma.fileRecord.delete({
+      where: { id: String(id) }
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'FILE_SHRED',
+        details: `Securely shredded file from ${fileRecord.category} vault`,
+      }
+    });
+
+    sendSuccess(res, null, 'File securely shredded and removed');
+  } catch (err) {
+    console.error('Shred file error:', err);
+    sendError(res, 'Failed to shred file');
   }
 });
 

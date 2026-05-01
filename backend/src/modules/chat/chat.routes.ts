@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.get('/messages/:contactId', authenticate, async (req: AuthRequest, res) =
     data: { status: 'DELIVERED' },
   });
 
-  res.json({ messages });
+  sendSuccess(res, { messages });
 });
 
 // GET /api/chat/contacts — list users the current user has chatted with
@@ -54,7 +55,7 @@ router.get('/contacts', authenticate, async (req: AuthRequest, res) => {
     }
   }
 
-  res.json({ contacts: Array.from(contactMap.values()) });
+  sendSuccess(res, { contacts: Array.from(contactMap.values()) });
 });
 
 // DELETE /api/chat/messages/:id — delete own message
@@ -62,9 +63,9 @@ router.delete('/messages/:id', authenticate, async (req: AuthRequest, res) => {
   const msg = await prisma.message.findFirst({
     where: { id: String(req.params.id), senderId: req.user!.userId },
   });
-  if (!msg) { res.status(404).json({ error: 'Not found' }); return; }
+  if (!msg) { sendError(res, 'Not found', 404); return; }
   await prisma.message.delete({ where: { id: String(req.params.id) } });
-  res.json({ message: 'Deleted' });
+  sendSuccess(res, null, 'Deleted');
 });
 
 export default router;

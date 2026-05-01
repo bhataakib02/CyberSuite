@@ -4,6 +4,7 @@ import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest, requireRole } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { logActivity } from '../../utils/logger';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.get('/', authenticate, requireRole('USER'), async (req: AuthRequest, res)
     userAgent: Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent']
   });
 
-  res.json({ entries });
+  sendSuccess(res, { entries });
 });
 
 // POST /api/vault — add entry
@@ -39,7 +40,8 @@ router.post('/', authenticate, requireRole('USER'), validate(addEntrySchema), as
   const entry = await prisma.vaultEntry.create({
     data: { userId: req.user!.userId, encryptedData, category, strength: strength || 0 } as any,
   });
-  res.status(201).json({ entry });
+  res.status(201);
+  sendSuccess(res, { entry });
 });
 
 // PUT /api/vault/:id — update entry
@@ -53,7 +55,7 @@ router.put('/:id', authenticate, requireRole('USER'), validate(addEntrySchema), 
     where: { id: String(req.params.id) },
     data: { encryptedData: req.body.encryptedData, category: req.body.category, strength: req.body.strength } as any,
   });
-  res.json({ entry: updated });
+  sendSuccess(res, { entry: updated });
 });
 
 // DELETE /api/vault/:id — delete entry
@@ -61,9 +63,9 @@ router.delete('/:id', authenticate, requireRole('USER'), async (req: AuthRequest
   const entry = await prisma.vaultEntry.findFirst({
     where: { id: String(req.params.id), userId: req.user!.userId },
   });
-  if (!entry) { res.status(404).json({ error: 'Not found' }); return; }
+  if (!entry) { sendError(res, 'Not found', 404); return; }
   await prisma.vaultEntry.delete({ where: { id: String(req.params.id) } });
-  res.json({ message: 'Deleted' });
+  sendSuccess(res, null, 'Deleted');
 });
 
 // DELETE /api/vault/:id/shred — Permanently destroy entry
@@ -85,10 +87,10 @@ router.delete('/:id/shred', authenticate, requireRole('USER'), async (req: AuthR
       status: 'WARNING'
     });
 
-    res.json({ message: 'Data shredded successfully' });
+    sendSuccess(res, null, 'Data shredded successfully');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to shred data' });
+    sendError(res, 'Failed to shred data');
   }
 });
 

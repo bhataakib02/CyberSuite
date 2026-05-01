@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -18,10 +19,10 @@ router.get('/professionals', authenticate, async (req: AuthRequest, res) => {
         user: { select: { name: true, email: true } }
       }
     });
-    res.json({ professionals });
+    sendSuccess(res, { professionals });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch professionals' });
+    sendError(res, 'Failed to fetch professionals');
   }
 });
 
@@ -39,10 +40,10 @@ router.post('/request', authenticate, async (req: AuthRequest, res) => {
       }
     });
 
-    res.json({ consultation });
+    sendSuccess(res, { consultation });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to request consultation' });
+    sendError(res, 'Failed to request consultation');
   }
 });
 
@@ -62,10 +63,10 @@ router.get('/active', authenticate, async (req: AuthRequest, res) => {
         professional: { select: { name: true } }
       }
     });
-    res.json({ consultations });
+    sendSuccess(res, { consultations });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch active consultations' });
+    sendError(res, 'Failed to fetch active consultations');
   }
 });
 

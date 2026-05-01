@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.get('/chat/:id/messages', authenticate, async (req: AuthRequest, res) => 
     });
 
     if (!consultation || (consultation.userId !== req.user!.userId && consultation.professionalId !== req.user!.userId)) {
-      return res.status(403).json({ error: 'Unauthorized access to chat' });
+      return sendError(res, 'Unauthorized access to chat', 403);
     }
 
     const messages = await (prisma as any).consultationMessage.findMany({
@@ -23,10 +24,10 @@ router.get('/chat/:id/messages', authenticate, async (req: AuthRequest, res) => 
       orderBy: { createdAt: 'asc' }
     });
 
-    res.json({ messages });
+    sendSuccess(res, { messages });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    sendError(res, 'Failed to fetch messages');
   }
 });
 
@@ -48,10 +49,10 @@ router.post('/chat/:id/messages', authenticate, async (req: AuthRequest, res) =>
       }
     });
 
-    res.json({ message });
+    sendSuccess(res, { message });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to send message' });
+    sendError(res, 'Failed to send message');
   }
 });
 

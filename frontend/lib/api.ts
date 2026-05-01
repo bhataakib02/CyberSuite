@@ -1,13 +1,21 @@
 import { useAuthStore } from '../store/useAuthStore';
 
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  error?: string;
+  timestamp: string;
+}
+
 const BASE_URL = 'http://localhost:5000/api';
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   const { accessToken, setAccessToken, logout } = useAuthStore.getState();
 
-  const headers: any = {
+  const headers: Record<string, string> = {
     ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
 
   if (options.body && !(options.body instanceof FormData)) {

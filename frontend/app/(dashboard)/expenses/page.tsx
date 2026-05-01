@@ -17,7 +17,7 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, ApiResponse } from '../../../lib/api';
 
 interface Expense {
   id: string;
@@ -46,10 +46,10 @@ export default function ExpensesPage() {
 
   const fetchExpenses = async () => {
     try {
-      const res = await apiFetch('/auth/expenses'); // Re-using existing route if available, or I'll create a new one
-      if (res.ok) {
-        const data = await res.json();
-        setExpenses(data.expenses || []);
+      const res = await apiFetch('/expenses');
+      const data: ApiResponse<{ expenses: Expense[] }> = await res.json();
+      if (res.ok && data.success && data.data) {
+        setExpenses(data.data.expenses || []);
       }
     } catch (err) {
       console.error('Failed to fetch expenses');

@@ -45,7 +45,7 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err: any) {
       if (err.message === 'Email not verified') {
-        router.push(`/verify?email=${encodeURIComponent(email)}`);
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
         return;
       }
       setError(err.message);

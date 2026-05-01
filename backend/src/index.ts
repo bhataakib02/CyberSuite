@@ -30,6 +30,7 @@ import consultationRouter from './modules/consultations/consultation.routes';
 import consultationChatRouter from './modules/consultations/consultationChat.routes';
 import { geoFence } from './middleware/geo';
 import { startCronJobs } from './jobs/cron';
+import { sendSuccess } from './utils/response';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -63,7 +64,7 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ── Health check ──────────────────────────────────────────────────────────────
-app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', (_req, res) => sendSuccess(res, { status: 'ok' }));
 
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRouter);

@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ── GET /api/subscriptions ────────────────────────────────────────────────────
 router.get('/', authenticate, async (req: AuthRequest, res) => {
@@ -12,10 +12,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
       where: { userId: req.user!.userId },
       orderBy: { nextBilling: 'asc' },
     });
-    res.json({ subscriptions });
+    sendSuccess(res, { subscriptions });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch subscriptions' });
+    sendError(res, 'Failed to fetch subscriptions');
   }
 });
 
@@ -42,10 +42,10 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
       data: { userId: req.user!.userId, action: 'SUBSCRIPTION_ADD', details: `Added subscription: ${name}` },
     });
 
-    res.json({ subscription });
+    sendSuccess(res, { subscription });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create subscription' });
+    sendError(res, 'Failed to create subscription');
   }
 });
 
@@ -58,15 +58,15 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
     });
 
     if (!sub) {
-      res.status(404).json({ error: 'Subscription not found' });
+      sendError(res, 'Subscription not found', 404);
       return;
     }
 
     await prisma.subscription.delete({ where: { id: String(id) } });
-    res.json({ message: 'Subscription removed' });
+    sendSuccess(res, null, 'Subscription removed');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to delete subscription' });
+    sendError(res, 'Failed to delete subscription');
   }
 });
 

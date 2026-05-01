@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, ApiResponse } from '../../../lib/api';
 import { 
   UserCheck, 
   ShieldAlert, 
@@ -17,6 +17,12 @@ import {
   Globe,
   Activity
 } from 'lucide-react';
+
+interface PasswordCheckResult {
+  exposed: boolean;
+  exposureCount: number;
+  message: string;
+}
 
 interface IdentityResult {
   email: string;
@@ -36,7 +42,7 @@ export default function IdentityProtectPage() {
   const [emailResult, setEmailResult] = useState<IdentityResult | null>(null);
   
   const [isCheckingPassword, setIsCheckingPassword] = useState(false);
-  const [passwordResult, setPasswordResult] = useState<{ exposed: boolean; count: number; message: string } | null>(null);
+  const [passwordResult, setPasswordResult] = useState<PasswordCheckResult | null>(null);
 
   const checkEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +55,9 @@ export default function IdentityProtectPage() {
         method: 'POST',
         body: JSON.stringify({ email })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setEmailResult(data);
+      const data: ApiResponse<IdentityResult> = await res.json();
+      if (res.ok && data.success && data.data) {
+        setEmailResult(data.data);
       }
     } catch (err) {
       console.error(err);
@@ -71,9 +77,13 @@ export default function IdentityProtectPage() {
         method: 'POST',
         body: JSON.stringify({ password: passwordToCheck })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setPasswordResult({ exposed: data.exposed, count: data.exposureCount, message: data.message });
+      const data: ApiResponse<PasswordCheckResult> = await res.json();
+      if (res.ok && data.success && data.data) {
+        setPasswordResult({ 
+          exposed: data.data.exposed, 
+          exposureCount: data.data.exposureCount, 
+          message: data.message || '' 
+        });
       }
     } catch (err) {
       console.error(err);

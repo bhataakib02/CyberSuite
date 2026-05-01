@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
-const withPWA = require("next-pwa")({
+// @ts-ignore
+import withPWAInit from "next-pwa";
+
+const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
   register: true,
@@ -8,6 +11,8 @@ const withPWA = require("next-pwa")({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  staticPageGenerationTimeout: 300,
+  // eslint and typescript keys are handled via CLI in newer Next.js or ignored during build if configured correctly
 };
 
 export default withPWA(nextConfig);

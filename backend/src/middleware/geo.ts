@@ -12,24 +12,30 @@ export async function geoFence(req: AuthRequest, res: Response, next: NextFuncti
       select: { allowedCountries: true }
     });
 
-    if (!user || user.allowedCountries.includes('*')) return next();
+    if (!user || !user.allowedCountries || user.allowedCountries.length === 0 || user.allowedCountries.includes('*')) {
+      return next();
+    }
 
-    // In production, use a library like 'geoip-lite' or a service like IP-API
-    // Here we mock the check for demonstration
-    const clientIp = req.ip || '127.0.0.1';
-    
-    // Mocking a check: Assume 127.0.0.1 is always allowed for dev
-    if (clientIp === '127.0.0.1' || clientIp === '::1') return next();
+    const clientIp = req.ip;
 
-    // Actual check would look like this:
-    // const geo = await axios.get(`http://ip-api.com/json/${clientIp}`);
-    // if (!user.allowedCountries.includes(geo.data.countryCode)) {
-    //   return res.status(403).json({ error: 'Access denied from this location.' });
-    // }
+    // Allow local/dev access
+    if (!clientIp || clientIp === '127.0.0.1' || clientIp === '::1') {
+      return next();
+    }
+
+    try {
+      const { data } = await axios.get(`http://ip-api.com/json/${clientIp}?fields=countryCode`, { timeout: 3000 });
+      if (data?.countryCode && !user.allowedCountries.includes(data.countryCode)) {
+        return res.status(403).json({ error: 'Access denied from this location.' });
+      }
+    } catch {
+      // Geo lookup failed — fail-open
+      console.warn(`Geo-fence: Could not lookup IP ${clientIp}. Allowing access.`);
+    }
 
     next();
   } catch (err) {
     console.error('Geo-fence error:', err);
-    next(); // Fail-open to avoid locking users out due to API failures
+    next();
   }
 }

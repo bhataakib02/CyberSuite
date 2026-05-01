@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
+import { sendError } from '../utils/response';
 
 export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
     console.error(`[ERROR] ${err.message}`, err.stack);
-    res.status(500).json({ error: 'Internal server error', message: err.message });
+    sendError(res, 'Internal server error', 500, err.message);
 }
 
 export function notFound(req: Request, res: Response) {
-    res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
+    sendError(res, `Route ${req.method} ${req.path} not found`, 404);
 }

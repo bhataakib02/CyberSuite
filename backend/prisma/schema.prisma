@@ -130,17 +130,20 @@ model Warranty {
 }
 
 model MedicalRecord {
-  id              String          @id @default(uuid())
-  patientId       String
-  fileName        String
-  encFileUrl      String
-  encKeyForOwner  String
-  description     String?
-  recordDate      DateTime        @default(now())
-  createdAt       DateTime        @default(now())
-  doctorAccesses  DoctorAccess[]
-  patient         User            @relation("PatientRecords", fields: [patientId], references: [id], onDelete: Cascade)
-  oneTimeAccesses OneTimeAccess[]
+  id                    String          @id @default(uuid())
+  patientId             String
+  fileName              String
+  encFileUrl            String
+  encKeyForOwner        String
+  description           String?
+  blockchainTxId        String?
+  blockchainNetwork     String?
+  blockchainBlockNumber Int?
+  recordDate            DateTime        @default(now())
+  createdAt             DateTime        @default(now())
+  doctorAccesses        DoctorAccess[]
+  patient               User            @relation("PatientRecords", fields: [patientId], references: [id], onDelete: Cascade)
+  oneTimeAccesses       OneTimeAccess[]
 }
 
 model DoctorAccess {

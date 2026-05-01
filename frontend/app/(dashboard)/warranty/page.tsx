@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, ApiResponse } from '../../../lib/api';
 import { 
   FileText, 
   Plus, 
@@ -56,9 +56,9 @@ export default function WarrantyPage() {
     setIsLoading(true);
     try {
       const res = await apiFetch('/warranty');
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.items || []);
+      const data: ApiResponse<{ items: WarrantyItem[] }> = await res.json();
+      if (res.ok && data.success && data.data) {
+        setItems(data.data.items || []);
       }
     } catch (err) {
       console.error(err);
@@ -85,7 +85,8 @@ export default function WarrantyPage() {
         body: data,
       });
 
-      if (res.ok) {
+      const result: ApiResponse<{ item: WarrantyItem }> = await res.json();
+      if (res.ok && result.success) {
         setIsAddModalOpen(false);
         setFormData({ productName: '', price: '', purchaseDate: new Date().toISOString().split('T')[0], expiryDate: '', notes: '' });
         setFile(null);

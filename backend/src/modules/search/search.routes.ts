@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
 
   if (!q || typeof q !== 'string' || q.length < 2) {
-    res.json({ results: [] });
+    sendSuccess(res, { results: [] });
     return;
   }
 
@@ -56,10 +57,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
       ...vault.map(v => ({ id: v.id, title: `Vault: ${v.category}`, type: 'VAULT', path: '/vault' }))
     ];
 
-    res.json({ results });
+    sendSuccess(res, { results });
   } catch (err) {
     console.error('Search error:', err);
-    res.status(500).json({ error: 'Search failed' });
+    sendError(res, 'Search failed');
   }
 });
 

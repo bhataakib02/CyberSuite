@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Scale, 
   Briefcase, 
@@ -29,6 +29,17 @@ export default function LawyerDashboard() {
     { id: 3, name: 'Client_Affidavit_Signed.pdf', type: 'Evidence', date: '2026-04-15' },
   ]);
 
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCase, setNewCase] = useState({ title: '', client: '', status: 'PENDING', nextHearing: '' });
+
+  const handleAddCase = (e: React.FormEvent) => {
+    e.preventDefault();
+    const id = `CAS-${Math.floor(Math.random() * 9000) + 1000}`;
+    setActiveCases([{ id, ...newCase }, ...activeCases]);
+    setShowAddModal(false);
+    setNewCase({ title: '', client: '', status: 'PENDING', nextHearing: '' });
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -40,17 +51,103 @@ export default function LawyerDashboard() {
           </h1>
           <p className="text-zinc-500 font-medium tracking-wide">Zero-Trust Case Management & Secure Client Communication.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/contracts" className="bg-amber-500/10 border border-amber-500/20 text-amber-500 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500/20 transition-all flex items-center gap-2">
-            <FileSignature className="w-4 h-4" />
-            Digital Signatures
-          </Link>
+          <button onClick={() => setShowAddModal(true)} className="bg-amber-500 hover:bg-amber-400 text-black px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2 shadow-xl shadow-amber-500/20">
+            <Briefcase className="w-4 h-4" />
+            New Case File
+          </button>
           <Link href="/chat" className="bg-white/5 border border-white/10 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all flex items-center gap-2">
             <MessageSquare className="w-4 h-4" />
             Client Chat
           </Link>
         </div>
-      </div>
+
+
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl rounded-full" />
+              
+              <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-6">Initialize New Case</h2>
+              
+              <form onSubmit={handleAddCase} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Case Title</label>
+                  <input 
+                    required
+                    value={newCase.title}
+                    onChange={e => setNewCase({...newCase, title: e.target.value})}
+                    placeholder="e.g. Smith vs. CyberCorp"
+                    className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Client Name</label>
+                  <input 
+                    required
+                    value={newCase.client}
+                    onChange={e => setNewCase({...newCase, client: e.target.value})}
+                    placeholder="Full Name / Entity"
+                    className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Next Hearing</label>
+                    <input 
+                      type="date"
+                      required
+                      value={newCase.nextHearing}
+                      onChange={e => setNewCase({...newCase, nextHearing: e.target.value})}
+                      className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Priority</label>
+                    <select 
+                      value={newCase.status}
+                      onChange={e => setNewCase({...newCase, status: e.target.value})}
+                      className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all appearance-none"
+                    >
+                      <option value="PENDING">PENDING</option>
+                      <option value="IN_PROGRESS">ACTIVE</option>
+                      <option value="REVIEW">URGENT</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 px-6 py-4 rounded-2xl bg-white/5 text-zinc-400 font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 px-6 py-4 rounded-2xl bg-amber-500 text-black font-black uppercase tracking-widest text-[10px] hover:bg-amber-400 transition-all"
+                  >
+                    Create Case
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Case Management */}

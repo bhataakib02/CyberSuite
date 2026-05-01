@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { validate } from '../../middleware/validate';
 import axios from 'axios';
 import crypto from 'crypto';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -105,7 +106,7 @@ router.post('/', validate(analyzeSchema), async (req: Request, res: Response) =>
   const { score, label } = getStrengthScore(entropy, patterns, pwnedCount);
   const suggestions = getSuggestions(password, pwnedCount);
 
-  res.json({
+  sendSuccess(res, {
     score,
     label,
     pwnedCount,

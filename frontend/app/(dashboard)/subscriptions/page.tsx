@@ -14,7 +14,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, ApiResponse } from '../../../lib/api';
 
 interface Subscription {
   id: string;
@@ -50,9 +50,9 @@ export default function SubscriptionsPage() {
   const fetchSubscriptions = async () => {
     try {
       const res = await apiFetch('/subscriptions');
-      if (res.ok) {
-        const data = await res.json();
-        setSubscriptions(data.subscriptions);
+      const data: ApiResponse<{ subscriptions: Subscription[] }> = await res.json();
+      if (res.ok && data.success && data.data) {
+        setSubscriptions(data.data.subscriptions);
       }
     } catch (err) {
       console.error(err);
@@ -68,7 +68,8 @@ export default function SubscriptionsPage() {
         method: 'POST',
         body: JSON.stringify(newSub),
       });
-      if (res.ok) {
+      const data: ApiResponse<Subscription> = await res.json();
+      if (res.ok && data.success) {
         fetchSubscriptions();
         setIsAddModalOpen(false);
         setNewSub({

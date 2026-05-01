@@ -1,15 +1,31 @@
-import { apiFetch } from './api';
+import { apiFetch, ApiResponse } from './api';
 import { db } from './db';
+
+interface SyncItem {
+  id: string;
+  category: string;
+  encryptedData: string;
+  createdAt: string;
+}
+
+interface SyncFile {
+  id: string;
+  fileName: string;
+  category: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+}
 
 export async function syncVault() {
   try {
     const res = await apiFetch('/vault');
-    if (res.ok) {
-      const data = await res.json();
+    const data: ApiResponse<{ entries: SyncItem[] }> = await res.json();
+    if (res.ok && data.success) {
       await db.vault.clear();
-      const items = data.items || [];
+      const items = data.data?.entries || [];
       if (items.length > 0) {
-        await db.vault.bulkPut(items.map((item: any) => ({
+        await db.vault.bulkPut(items.map((item: SyncItem) => ({
           id: item.id,
           category: item.category,
           encryptedData: item.encryptedData,
@@ -24,13 +40,13 @@ export async function syncVault() {
 
 export async function syncMedical() {
   try {
-    const res = await apiFetch('/medical');
-    if (res.ok) {
-      const data = await res.json();
+    const res = await apiFetch('/medical/records');
+    const data: ApiResponse<{ records: SyncItem[] }> = await res.json();
+    if (res.ok && data.success) {
       await db.medical.clear();
-      const records = data.records || [];
+      const records = data.data?.records || [];
       if (records.length > 0) {
-        await db.medical.bulkPut(records.map((record: any) => ({
+        await db.medical.bulkPut(records.map((record: SyncItem) => ({
           id: record.id,
           category: record.category,
           encryptedData: record.encryptedData,
@@ -46,12 +62,12 @@ export async function syncMedical() {
 export async function syncFiles() {
   try {
     const res = await apiFetch('/files');
-    if (res.ok) {
-      const data = await res.json();
+    const data: ApiResponse<{ files: SyncFile[] }> = await res.json();
+    if (res.ok && data.success) {
       await db.files.clear();
-      const files = data.files || [];
+      const files = data.data?.files || [];
       if (files.length > 0) {
-        await db.files.bulkPut(files.map((file: any) => ({
+        await db.files.bulkPut(files.map((file: SyncFile) => ({
           id: file.id,
           fileName: file.fileName,
           category: file.category,

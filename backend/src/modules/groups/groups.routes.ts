@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -16,10 +17,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
         owner: { select: { name: true } }
       }
     });
-    res.json({ groups });
+    sendSuccess(res, { groups });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch groups' });
+    sendError(res, 'Failed to fetch groups');
   }
 });
 
@@ -40,10 +41,10 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
         }
       }
     });
-    res.json({ group });
+    sendSuccess(res, { group });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create group' });
+    sendError(res, 'Failed to create group');
   }
 });
 
@@ -54,7 +55,7 @@ router.post('/:id/members', authenticate, async (req: AuthRequest, res) => {
     const { id } = req.params;
 
     const userToAdd = await prisma.user.findUnique({ where: { email } });
-    if (!userToAdd) return res.status(404).json({ error: 'User not found' });
+    if (!userToAdd) return sendError(res, 'User not found', 404);
 
     const member = await (prisma as any).groupMember.create({
       data: {
@@ -63,10 +64,10 @@ router.post('/:id/members', authenticate, async (req: AuthRequest, res) => {
         role: role || 'MEMBER'
       }
     });
-    res.json({ member });
+    sendSuccess(res, { member });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to add member' });
+    sendError(res, 'Failed to add member');
   }
 });
 

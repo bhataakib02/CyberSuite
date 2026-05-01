@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, requireRole, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -41,14 +42,13 @@ router.get('/dashboard', authenticate, requireRole('ADMIN'), async (req: AuthReq
       })
     ]);
 
-    // Trend simulation (In a real app, this would be real historical data)
     const mockTrends = {
       growth: [120, 145, 134, 168, 189, 210, totalUsers],
       activity: [500, 620, 480, 710, 850, 920, 1050],
       alerts: [5, 2, 8, 3, 1, 6, securityStats[2]]
     };
 
-    res.json({
+    sendSuccess(res, {
       kpis: {
         totalUsers,
         activeUsers,
@@ -70,7 +70,7 @@ router.get('/dashboard', authenticate, requireRole('ADMIN'), async (req: AuthReq
     });
   } catch (err) {
     console.error('Admin dashboard error:', err);
-    res.status(500).json({ error: 'Failed to fetch SOC dashboard data' });
+    sendError(res, 'Failed to fetch SOC dashboard data');
   }
 });
 
@@ -115,10 +115,10 @@ router.get('/users', authenticate, requireRole('ADMIN'), async (req: AuthRequest
     ]);
 
     console.log(`[Admin] Found ${users.length} users out of ${total} total`);
-    res.json({ users, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    sendSuccess(res, { users }, undefined, 200);
   } catch (err) {
     console.error('Failed to fetch users:', err);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    sendError(res, 'Failed to fetch users');
   }
 });
 
@@ -154,9 +154,9 @@ router.post('/users/:id/block', authenticate, requireRole('ADMIN'), async (req: 
       }
     });
 
-    res.json({ message: `User ${newStatus ? 'unblocked' : 'blocked'} successfully`, isActive: newStatus });
+    sendSuccess(res, { isActive: newStatus }, `User ${newStatus ? 'unblocked' : 'blocked'} successfully`);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update user status' });
+    sendError(res, 'Failed to update user status');
   }
 });
 
@@ -177,9 +177,9 @@ router.post('/users/:id/force-logout', authenticate, requireRole('ADMIN'), async
       }
     });
 
-    res.json({ message: 'All active sessions destroyed for user' });
+    sendSuccess(res, null, 'All active sessions destroyed for user');
   } catch (err) {
-    res.status(500).json({ error: 'Failed to force logout' });
+    sendError(res, 'Failed to force logout');
   }
 });
 
@@ -214,12 +214,9 @@ router.get('/audit-logs', authenticate, requireRole('ADMIN'), async (req: AuthRe
       prisma.activityLog.count({ where })
     ]);
 
-    res.json({
-      logs,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
-    });
+    sendSuccess(res, { logs });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch audit logs' });
+    sendError(res, 'Failed to fetch audit logs');
   }
 });
 
@@ -235,7 +232,7 @@ router.get('/system-health', authenticate, requireRole('ADMIN'), async (req: Aut
     const memStatus = memUsage > 85 ? 'CRITICAL' : memUsage > 70 ? 'WARNING' : 'HEALTHY';
     const apiStatus = apiLatency > 500 ? 'CRITICAL' : apiLatency > 200 ? 'WARNING' : 'HEALTHY';
 
-    res.json({
+    sendSuccess(res, {
       cpu: cpuLoad,
       memory: memUsage,
       latency: apiLatency,
@@ -249,7 +246,7 @@ router.get('/system-health', authenticate, requireRole('ADMIN'), async (req: Aut
                      [cpuStatus, memStatus, apiStatus].includes('WARNING') ? 'WARNING' : 'HEALTHY',
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch system health' });
+    sendError(res, 'Failed to fetch system health');
   }
 });
 
@@ -260,9 +257,9 @@ router.get('/pending-verifications', authenticate, requireRole('ADMIN'), async (
       where: { status: 'PENDING' },
       include: { user: { select: { name: true, email: true, role: true, createdAt: true } } }
     });
-    res.json({ pending });
+    sendSuccess(res, { pending });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch pending verifications' });
+    sendError(res, 'Failed to fetch pending verifications');
   }
 });
 
@@ -314,9 +311,9 @@ router.post('/verify-professional/:id', authenticate, requireRole('ADMIN'), asyn
       }
     });
 
-    res.json({ message: `Professional ${status === 'APPROVE' ? 'verified' : 'rejected'} successfully` });
+    sendSuccess(res, null, `Professional ${status === 'APPROVE' ? 'verified' : 'rejected'} successfully`);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to verify professional' });
+    sendError(res, 'Failed to verify professional');
   }
 });
 
@@ -328,9 +325,9 @@ router.get('/incidents', authenticate, requireRole('ADMIN'), async (req: AuthReq
       take: 50,
       include: { user: { select: { name: true, email: true } } }
     });
-    res.json({ incidents });
+    sendSuccess(res, { incidents });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch incidents' });
+    sendError(res, 'Failed to fetch incidents');
   }
 });
 
@@ -350,9 +347,9 @@ router.post('/incidents', authenticate, requireRole('ADMIN'), async (req: AuthRe
       }
     });
 
-    res.json({ incident });
+    sendSuccess(res, { incident });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to create incident' });
+    sendError(res, 'Failed to create incident');
   }
 });
 
@@ -365,9 +362,9 @@ router.patch('/incidents/:id', authenticate, requireRole('ADMIN'), async (req: A
       where: { id },
       data: { status }
     });
-    res.json({ incident });
+    sendSuccess(res, { incident });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update incident' });
+    sendError(res, 'Failed to update incident');
   }
 });
 
@@ -375,9 +372,9 @@ router.patch('/incidents/:id', authenticate, requireRole('ADMIN'), async (req: A
 router.get('/security-rules', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const rules = await (prisma as any).securityRule.findMany({ orderBy: { createdAt: 'desc' } });
-    res.json({ rules });
+    sendSuccess(res, { rules });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch security rules' });
+    sendError(res, 'Failed to fetch security rules');
   }
 });
 
@@ -388,9 +385,9 @@ router.post('/security-rules', authenticate, requireRole('ADMIN'), async (req: A
     const rule = await (prisma as any).securityRule.create({
       data: { name, description, trigger, threshold: parseInt(threshold), action }
     });
-    res.json({ rule });
+    sendSuccess(res, { rule });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to create security rule' });
+    sendError(res, 'Failed to create security rule');
   }
 });
 
@@ -403,9 +400,9 @@ router.patch('/security-rules/:id/toggle', authenticate, requireRole('ADMIN'), a
       where: { id },
       data: { isActive: !rule.isActive }
     });
-    res.json({ rule: updated });
+    sendSuccess(res, { rule: updated });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to toggle security rule' });
+    sendError(res, 'Failed to toggle security rule');
   }
 });
 
@@ -436,13 +433,13 @@ router.get('/reports', authenticate, requireRole('ADMIN'), async (req: AuthReque
       })
     ]);
 
-    res.json({
+    sendSuccess(res, {
       growth: { usersLast7, usersLast30 },
       topActions: loginActions.map(a => ({ action: a.action, count: a._count.action })),
       roleBreakdown: roleBreakdown.map(r => ({ role: r.role, count: r._count.role })),
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch reports' });
+    sendError(res, 'Failed to fetch reports');
   }
 });
 
@@ -454,9 +451,9 @@ router.get('/alerts', authenticate, requireRole('ADMIN'), async (req: AuthReques
       take: 100,
       include: { user: { select: { name: true, email: true } } }
     });
-    res.json({ alerts });
+    sendSuccess(res, { alerts });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch alerts' });
+    sendError(res, 'Failed to fetch alerts');
   }
 });
 
@@ -506,10 +503,82 @@ router.post('/alerts/:id/action', authenticate, requireRole('ADMIN'), async (req
       }
     });
 
-    res.json({ message: `Alert ${action.toLowerCase()}ed successfully` });
+    sendSuccess(res, null, `Alert ${action.toLowerCase()}ed successfully`);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to process alert action' });
+    sendError(res, 'Failed to process alert action');
+  }
+});
+
+// ── GET /api/admin/policies ───────────────────────────────────────────────────
+router.get('/policies', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const policies = await (prisma as any).policy.findMany({ orderBy: { createdAt: 'desc' } });
+    sendSuccess(res, { policies });
+  } catch (err) {
+    sendError(res, 'Failed to fetch policies');
+  }
+});
+
+// ── POST /api/admin/policies ──────────────────────────────────────────────────
+router.post('/policies', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { name, description, type, rules, isActive } = req.body;
+    const policy = await (prisma as any).policy.create({
+      data: {
+        name,
+        description,
+        type,
+        rules,
+        isActive: isActive !== undefined ? isActive : true,
+        createdBy: req.user!.userId
+      }
+    });
+    
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'ADMIN_CREATE_POLICY',
+        details: `Created policy: ${name}`,
+      }
+    });
+    
+    sendSuccess(res, { policy });
+  } catch (err) {
+    sendError(res, 'Failed to create policy');
+  }
+});
+
+// ── PATCH /api/admin/policies/:id ─────────────────────────────────────────────
+router.patch('/policies/:id', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, type, rules, isActive } = req.body;
+    
+    const data: any = {};
+    if (name !== undefined) data.name = name;
+    if (description !== undefined) data.description = description;
+    if (type !== undefined) data.type = type;
+    if (rules !== undefined) data.rules = rules;
+    if (isActive !== undefined) data.isActive = isActive;
+    
+    const policy = await (prisma as any).policy.update({
+      where: { id },
+      data
+    });
+    
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'ADMIN_UPDATE_POLICY',
+        details: `Updated policy: ${policy.name}`,
+      }
+    });
+    
+    sendSuccess(res, { policy });
+  } catch (err) {
+    sendError(res, 'Failed to update policy');
   }
 });
 
 export default router;
+

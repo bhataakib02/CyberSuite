@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../lib/prisma';
 import { authenticate as authenticateToken, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Get all notifications
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
@@ -13,9 +13,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' },
       take: 20
     });
-    res.json({ notifications });
+    sendSuccess(res, { notifications });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch notifications' });
+    sendError(res, 'Failed to fetch notifications');
   }
 });
 
@@ -26,9 +26,9 @@ router.post('/:id/read', authenticateToken, async (req: AuthRequest, res) => {
       where: { id: req.params.id as string, userId: req.user!.userId },
       data: { isRead: true }
     });
-    res.json({ success: true });
+    sendSuccess(res, null, 'Notification marked as read');
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update notification' });
+    sendError(res, 'Failed to update notification');
   }
 });
 
@@ -38,9 +38,9 @@ router.post('/clear', authenticateToken, async (req: AuthRequest, res) => {
     await prisma.notification.deleteMany({
       where: { userId: req.user!.userId }
     });
-    res.json({ success: true });
+    sendSuccess(res, null, 'All notifications cleared');
   } catch (err) {
-    res.status(500).json({ error: 'Failed to clear notifications' });
+    sendError(res, 'Failed to clear notifications');
   }
 });
 

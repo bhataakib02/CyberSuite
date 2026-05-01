@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { authenticate, AuthRequest } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import prisma from '../../lib/prisma';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 const checkSchema = z.object({ email: z.string().email() });
@@ -84,7 +85,7 @@ router.post('/check', authenticate, validate(checkSchema), async (req: AuthReque
     data: { userId: req.user!.userId, action: 'IDENTITY_CHECK', details: `Checked identity for ${email}` },
   });
 
-  res.json({
+  sendSuccess(res, {
     email,
     breached: hibpResult.breached,
     breachCount: hibpResult.count,
@@ -98,21 +99,18 @@ router.post('/check', authenticate, validate(checkSchema), async (req: AuthReque
 // POST /api/identity/check-password
 router.post('/check-password', authenticate, async (req: AuthRequest, res) => {
   const { password } = req.body;
-  if (!password) { res.status(400).json({ error: 'Password required' }); return; }
-  
   const count = await checkPasswordBreach(password);
   
   await prisma.activityLog.create({
     data: { userId: req.user!.userId, action: 'PASSWORD_CHECK', details: `Performed password exposure check` },
   });
 
-  res.json({
+  sendSuccess(res, {
     exposed: count > 0,
     exposureCount: count,
-    message: count > 0
-      ? `This password appears ${count.toLocaleString()} times in known data breaches!`
-      : 'This password has not been found in known breaches.',
-  });
+  }, count > 0
+    ? `This password appears ${count.toLocaleString()} times in known data breaches!`
+    : 'This password has not been found in known breaches.');
 });
 
 export default router;

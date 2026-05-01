@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, ApiResponse } from '../../../lib/api';
 import { aesEncrypt, aesDecrypt, deriveVaultKey, sha256 } from '../../../lib/crypto';
 import { 
   FolderLock, 
@@ -57,9 +57,9 @@ export default function SecureFileVault() {
   const fetchFiles = async () => {
     try {
       const res = await apiFetch('/files');
-      if (res.ok) {
-        const data = await res.json();
-        setFiles(data.files);
+      const data: ApiResponse<{ files: FileRecord[] }> = await res.json();
+      if (res.ok && data.success && data.data) {
+        setFiles(data.data.files);
       }
     } catch (err) {
       console.error(err);
@@ -88,7 +88,9 @@ export default function SecureFileVault() {
       // 1. Read file as array buffer
       const buffer = await file.arrayBuffer();
       // 2. Convert to Base64 for AES encryption
-      const base64String = Buffer.from(buffer).toString('base64');
+      const base64String = btoa(
+        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
       setUploadProgress(30);
 
       // 3. Derive key and encrypt payload
@@ -118,7 +120,7 @@ export default function SecureFileVault() {
         setUploadProgress(100);
         await fetchFiles();
       } else {
-        const err = await res.json();
+        const err: ApiResponse<null> = await res.json();
         alert(err.error || 'Upload failed');
       }
     } catch (err) {

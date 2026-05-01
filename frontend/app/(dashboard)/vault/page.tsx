@@ -23,13 +23,23 @@ import {
 } from 'lucide-react';
 import { deriveVaultKey, aesEncrypt, aesDecrypt, generateSaltHex, sha256 } from '../../../lib/crypto';
 
+interface DecryptedVaultItem {
+  title: string;
+  username: string;
+  email: string;
+  password: string;
+  url: string;
+  notes: string;
+  category: string;
+}
+
 interface VaultItem {
   id: string;
   category: string;
   encryptedData: string;
   strength: number;
   createdAt: string;
-  decrypted?: any;
+  decrypted?: DecryptedVaultItem;
 }
 
 export default function VaultPage() {
@@ -95,8 +105,8 @@ export default function VaultPage() {
     try {
       const res = await apiFetch('/vault');
       const data = await res.json();
-      if (res.ok) {
-        setItems(data.entries || []);
+      if (res.ok && data.success) {
+        setItems(data.data.entries || []);
       }
     } catch (err) {
       console.error(err);
@@ -242,8 +252,8 @@ export default function VaultPage() {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        const addedItem = { ...data.entry, decrypted: newItem, strength };
+      if (res.ok && data.success) {
+        const addedItem = { ...data.data.entry, decrypted: newItem, strength };
         setItems([addedItem, ...items]);
         setIsAddModalOpen(false);
         setNewItem({ title: '', username: '', email: '', password: '', url: '', notes: '', category: 'Login' });
@@ -567,7 +577,7 @@ export default function VaultPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Username</span>
                     <button 
-                      onClick={() => copyToClipboard(item.decrypted?.username, `user-${item.id}`)}
+                      onClick={() => copyToClipboard(item.decrypted?.username || '', `user-${item.id}`)}
                       className="text-zinc-600 hover:text-white transition-colors"
                     >
                       {copiedId === `user-${item.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -587,7 +597,7 @@ export default function VaultPage() {
                         {visiblePasswords.has(item.id) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                       <button 
-                        onClick={() => copyToClipboard(item.decrypted?.password, `pass-${item.id}`)}
+                        onClick={() => copyToClipboard(item.decrypted?.password || '', `pass-${item.id}`)}
                         className="text-zinc-600 hover:text-white transition-colors"
                       >
                         {copiedId === `pass-${item.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}

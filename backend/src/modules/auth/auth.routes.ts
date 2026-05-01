@@ -10,6 +10,7 @@ import { authenticate, AuthRequest } from '../../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 import { logActivity } from '../../utils/logger';
 import jwt from 'jsonwebtoken';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12');
@@ -40,7 +41,7 @@ router.get('/captcha', (req, res) => {
   
   const captchaToken = jwt.sign({ answer }, process.env.JWT_ACCESS_SECRET!, { expiresIn: '10m' });
   
-  res.json({
+  sendSuccess(res, {
     text: `What is ${num1} + ${num2}?`,
     captchaToken
   });
@@ -99,13 +100,13 @@ router.post('/register', validate(registerSchema), async (req, res) => {
       data: { userId: user.id, action: 'REGISTER', details: `New account created from ${req.ip}. Verification email sent.` },
     });
 
-    res.status(201).json({
-      message: 'Account created successfully. Please check your email for verification code.',
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    });
+    res.status(201);
+    sendSuccess(res, {
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }
+    }, 'Account created successfully. Please check your email for verification code.');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Registration failed' });
+    sendError(res, 'Registration failed');
   }
 });
 
@@ -124,7 +125,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
         ipAddress: req.ip || 'Unknown',
         userAgent: req.headers['user-agent'] || 'Unknown'
       });
-      res.status(401).json({ error: 'Invalid credentials' });
+      sendError(res, 'Invalid credentials', 401);
       return;
     }
 
@@ -138,23 +139,22 @@ router.post('/login', validate(loginSchema), async (req, res) => {
         ipAddress: req.ip || 'Unknown',
         userAgent: req.headers['user-agent'] || 'Unknown'
       });
-      res.status(401).json({ error: 'Invalid credentials' });
+      sendError(res, 'Invalid credentials', 401);
       return;
     }
 
     if (!user.isVerified) {
-      res.status(403).json({ 
-        error: 'Email not verified',
+      sendError(res, 'Email not verified', 403, JSON.stringify({
         unverified: true,
         email: user.email 
-      });
+      }));
       return;
     }
 
     // Check 2FA if enabled
     if (user.twoFAEnabled && user.twoFASecret) {
       if (!twoFAToken) {
-        res.status(200).json({ require2FA: true });
+        sendSuccess(res, { require2FA: true });
         return;
       }
       const verified = speakeasy.totp.verify({
@@ -164,7 +164,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
         window: 1,
       });
       if (!verified) {
-        res.status(401).json({ error: 'Invalid 2FA code' });
+        sendError(res, 'Invalid 2FA code', 401);
         return;
       }
     }
@@ -208,7 +208,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.json({
+    sendSuccess(res, {
       accessToken,
       user: {
         id: user.id, name: user.name, email: user.email,
@@ -229,7 +229,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Login failed' });
+    sendError(res, 'Login failed');
   }
 });
 // ── POST /api/auth/refresh ────────────────────────────────────────────────────
@@ -269,10 +269,10 @@ router.post('/refresh', async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    res.json({ accessToken });
+    sendSuccess(res, { accessToken });
   } catch (err) {
     console.error('Refresh Error:', err);
-    res.status(401).json({ error: 'Invalid refresh token' });
+    sendError(res, 'Invalid refresh token', 401);
   }
 });
 
@@ -314,10 +314,10 @@ router.post('/verify-email', async (req, res) => {
       data: { userId: user.id, action: 'VERIFY_EMAIL', details: `Email verified successfully` },
     });
 
-    res.json({ message: 'Email verified successfully. You can now log in.' });
+    sendSuccess(res, null, 'Email verified successfully. You can now log in.');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Verification failed' });
+    sendError(res, 'Verification failed');
   }
 });
 
@@ -343,10 +343,10 @@ router.post('/resend-otp', async (req, res) => {
     const { sendOTP } = require('../../utils/mail');
     await sendOTP(email, verificationCode);
 
-    res.json({ message: 'New verification code sent' });
+    sendSuccess(res, null, 'New verification code sent');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to resend code' });
+    sendError(res, 'Failed to resend code');
   }
 });
 
@@ -357,7 +357,7 @@ router.post('/logout', authenticate, async (req: AuthRequest, res) => {
     data: { isActive: false },
   });
   res.clearCookie('refreshToken');
-  res.json({ message: 'Logged out' });
+  sendSuccess(res, null, 'Logged out');
 });
 
 // ── POST /api/auth/logout-all ─────────────────────────────────────────────────
@@ -367,7 +367,7 @@ router.post('/logout-all', authenticate, async (req: AuthRequest, res) => {
     data: { isActive: false },
   });
   res.clearCookie('refreshToken');
-  res.json({ message: 'Logged out from all devices' });
+  sendSuccess(res, null, 'Logged out from all devices');
 });
 
 // ── GET /api/auth/sessions ────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ router.get('/sessions', authenticate, async (req: AuthRequest, res) => {
     select: { id: true, deviceInfo: true, ipAddress: true, createdAt: true, lastUsedAt: true },
     orderBy: { lastUsedAt: 'desc' }
   });
-  res.json({ sessions });
+  sendSuccess(res, { sessions });
 });
 
 // ── DELETE /api/auth/sessions/:id ─────────────────────────────────────────────
@@ -406,10 +406,10 @@ router.delete('/sessions/:id', authenticate, async (req: AuthRequest, res) => {
       data: { userId: req.user!.userId, action: 'REVOKE_SESSION', details: `Revoked session on device: ${session.deviceInfo}` },
     });
 
-    res.json({ message: 'Session revoked successfully' });
+    sendSuccess(res, null, 'Session revoked successfully');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to revoke session' });
+    sendError(res, 'Failed to revoke session');
   }
 });
 
@@ -421,7 +421,7 @@ router.post('/enable-2fa', authenticate, async (req: AuthRequest, res) => {
     data: { twoFASecret: secret.base32 },
   });
   const qrCode = await QRCode.toDataURL(secret.otpauth_url!);
-  res.json({ secret: secret.base32, qrCode });
+  sendSuccess(res, { secret: secret.base32, qrCode });
 });
 
 // ── POST /api/auth/verify-2fa ─────────────────────────────────────────────────
@@ -433,10 +433,10 @@ router.post('/verify-2fa', authenticate, async (req: AuthRequest, res) => {
   const valid = speakeasy.totp.verify({
     secret: user.twoFASecret, encoding: 'base32', token, window: 1,
   });
-  if (!valid) { res.status(400).json({ error: 'Invalid code' }); return; }
+  if (!valid) { sendError(res, 'Invalid code', 400); return; }
 
   await prisma.user.update({ where: { id: user.id }, data: { twoFAEnabled: true } });
-  res.json({ message: '2FA enabled' });
+  sendSuccess(res, null, '2FA enabled');
 });
 
 // ── PUT /api/auth/keys (save E2EE keys) ───────────────────────────────────────
@@ -446,28 +446,32 @@ router.put('/keys', authenticate, async (req: AuthRequest, res) => {
     where: { id: req.user!.userId },
     data: { publicKey, encPrivateKey },
   });
-  res.json({ message: 'Keys saved' });
+  sendSuccess(res, null, 'Keys saved');
 });
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', authenticate, async (req: AuthRequest, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user!.userId },
-    select: { 
-      id: true, name: true, email: true, role: true, avatar: true, bio: true, 
-      twoFAEnabled: true, publicKey: true, encPrivateKey: true, createdAt: true,
-      masterPasswordHash: true, masterPasswordSalt: true, phoneNumber: true,
-      notifyEmail: true, notifySMS: true, notifyWhatsApp: true, notifyApp: true,
-      bloodGroup: true, allergies: true, chronicConditions: true, emergencyContacts: true
-    },
-  });
-  res.json({ 
-    user: {
-      ...user,
-      hasMasterPassword: !!user?.masterPasswordHash,
-      masterPasswordHash: undefined // Don't send actual hash to frontend
-    } 
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { 
+        id: true, name: true, email: true, role: true, avatar: true, bio: true, 
+        twoFAEnabled: true, publicKey: true, encPrivateKey: true, createdAt: true,
+        masterPasswordHash: true, masterPasswordSalt: true, phoneNumber: true,
+        notifyEmail: true, notifySMS: true, notifyWhatsApp: true, notifyApp: true,
+        bloodGroup: true, allergies: true, chronicConditions: true, emergencyContacts: true
+      },
+    });
+    sendSuccess(res, { 
+      user: {
+        ...user,
+        hasMasterPassword: !!user?.masterPasswordHash,
+        masterPasswordHash: undefined // Don't send actual hash to frontend
+      } 
+    });
+  } catch (err) {
+    sendError(res, 'Failed to fetch profile');
+  }
 });
 
 // ── GET /api/auth/users (search users for chat) ───────────────────────────────
@@ -483,7 +487,7 @@ router.get('/users', authenticate, async (req: AuthRequest, res) => {
     select: { id: true, name: true, email: true, role: true, avatar: true, publicKey: true },
     take: 20,
   });
-  res.json({ users });
+  sendSuccess(res, { users });
 });
 
 // ── GET /api/auth/stats ───────────────────────────────────────────────────────
@@ -526,7 +530,7 @@ router.get('/stats', authenticate, async (req: AuthRequest, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch stats' });
+    sendError(res, 'Failed to fetch stats');
   }
 });// ── POST /api/auth/update-profile ───────────────────────────────────────────
 router.post('/update-profile', authenticate, async (req: AuthRequest, res) => {
@@ -549,10 +553,10 @@ router.post('/update-profile', authenticate, async (req: AuthRequest, res) => {
       data: { userId: req.user!.userId, action: 'UPDATE_PROFILE', details: 'Updated profile details' },
     });
 
-    res.json({ message: 'Profile updated successfully', user: updatedUser });
+    sendSuccess(res, updatedUser, 'Profile updated successfully');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to update profile' });
+    sendError(res, 'Failed to update profile');
   }
 });
 
@@ -577,10 +581,10 @@ router.post('/change-password', authenticate, async (req: AuthRequest, res) => {
       data: { userId: user.id, action: 'CHANGE_PASSWORD', details: 'Password changed successfully' },
     });
 
-    res.json({ message: 'Password changed successfully' });
+    sendSuccess(res, null, 'Password changed successfully');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to change password' });
+    sendError(res, 'Failed to change password');
   }
 });
 router.get('/activity', authenticate, async (req: AuthRequest, res) => {
@@ -590,10 +594,10 @@ router.get('/activity', authenticate, async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' },
       take: 5,
     });
-    res.json({ logs });
+    sendSuccess(res, { logs });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch activity logs' });
+    sendError(res, 'Failed to fetch activity logs');
   }
 });
 router.post('/vault-setup', authenticate, async (req: AuthRequest, res) => {
@@ -608,10 +612,10 @@ router.post('/vault-setup', authenticate, async (req: AuthRequest, res) => {
       data: { userId: req.user!.userId, action: 'VAULT_SETUP', details: 'Master password and recovery key initialized' },
     });
 
-    res.json({ message: 'Vault setup successful' });
+    sendSuccess(res, null, 'Vault setup successful');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Vault setup failed' });
+    sendError(res, 'Vault setup failed');
   }
 });
 
@@ -638,10 +642,10 @@ router.post('/vault-recovery', authenticate, async (req: AuthRequest, res) => {
       data: { userId: user.id, action: 'VAULT_RECOVERY', details: 'Master password reset via recovery key' },
     });
 
-    res.json({ message: 'Master password reset successful' });
+    sendSuccess(res, null, 'Master password reset successful');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Recovery failed' });
+    sendError(res, 'Recovery failed');
   }
 });
 
@@ -661,14 +665,14 @@ router.get('/emergency/:id', async (req, res) => {
     });
 
     if (!user) {
-      res.status(404).json({ error: 'Emergency profile not found' });
+      sendError(res, 'Emergency profile not found', 404);
       return;
     }
 
-    res.json({ emergencyProfile: user });
+    sendSuccess(res, { emergencyProfile: user });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch emergency profile' });
+    sendError(res, 'Failed to fetch emergency profile');
   }
 });
 
@@ -694,10 +698,10 @@ router.post('/forgot-password', async (req, res) => {
     const { sendResetLink } = require('../../utils/mail');
     await sendResetLink(email, resetToken);
 
-    res.json({ message: `A password reset link has been sent to ${email}.` });
+    sendSuccess(res, null, `A password reset link has been sent to ${email}.`);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to process request' });
+    sendError(res, 'Failed to process request');
   }
 });
 
@@ -732,10 +736,10 @@ router.post('/reset-password', async (req, res) => {
       data: { userId: user.id, action: 'RESET_PASSWORD', details: 'Password reset successful via email link' },
     });
 
-    res.json({ message: 'Password reset successful. You can now log in.' });
+    sendSuccess(res, null, 'Password reset successful. You can now log in.');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to reset password' });
+    sendError(res, 'Failed to reset password');
   }
 });
 
@@ -746,9 +750,9 @@ router.get('/recovery-backups', authenticate, async (req: AuthRequest, res) => {
       where: { userId: req.user!.userId },
       orderBy: { createdAt: 'desc' }
     });
-    res.json({ backups });
+    sendSuccess(res, { backups });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch recovery backups' });
+    sendError(res, 'Failed to fetch recovery backups');
   }
 });
 
@@ -763,9 +767,9 @@ router.post('/recovery-backups', authenticate, async (req: AuthRequest, res) => 
         notes
       }
     });
-    res.json({ backup });
+    sendSuccess(res, { backup });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to create recovery backup' });
+    sendError(res, 'Failed to create recovery backup');
   }
 });
 
@@ -775,9 +779,9 @@ router.delete('/recovery-backups/:id', authenticate, async (req: AuthRequest, re
     await (prisma as any).recoveryBackup.delete({
       where: { id, userId: req.user!.userId }
     });
-    res.json({ message: 'Backup removed' });
+    sendSuccess(res, null, 'Backup removed');
   } catch (err) {
-    res.status(500).json({ error: 'Failed to remove backup' });
+    sendError(res, 'Failed to remove backup');
   }
 });
 
@@ -787,9 +791,9 @@ router.get('/expenses', authenticate, async (req: AuthRequest, res) => {
       where: { userId: req.user!.userId },
       orderBy: { createdAt: 'desc' }
     });
-    res.json({ expenses });
+    sendSuccess(res, { expenses });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch expenses' });
+    sendError(res, 'Failed to fetch expenses');
   }
 });
 

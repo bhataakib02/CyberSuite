@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../../lib/prisma';
 import { authenticate, AuthRequest } from '../../middleware/auth';
+import { sendSuccess, sendError } from '../../utils/response';
 
 const router = Router();
 
@@ -14,10 +15,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
       where: { id: req.user!.userId },
       select: { legacyInactivityDays: true, lastActiveAt: true } as any
     });
-    res.json({ contacts, legacyInactivityDays: user?.legacyInactivityDays, lastActiveAt: user?.lastActiveAt });
+    sendSuccess(res, { contacts, legacyInactivityDays: user?.legacyInactivityDays, lastActiveAt: user?.lastActiveAt });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to fetch legacy settings' });
+    sendError(res, 'Failed to fetch legacy settings');
   }
 });
 
@@ -33,10 +34,10 @@ router.post('/contacts', authenticate, async (req: AuthRequest, res) => {
         type: type || 'LEGACY'
       },
     });
-    res.json({ contact });
+    sendSuccess(res, { contact });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to add contact' });
+    sendError(res, 'Failed to add contact');
   }
 });
 
@@ -47,10 +48,10 @@ router.delete('/contacts/:id', authenticate, async (req: AuthRequest, res) => {
     await (prisma as any).trustedContact.delete({
       where: { id, userId: req.user!.userId },
     });
-    res.json({ message: 'Contact removed' });
+    sendSuccess(res, null, 'Contact removed');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to remove contact' });
+    sendError(res, 'Failed to remove contact');
   }
 });
 
@@ -62,10 +63,10 @@ router.patch('/settings', authenticate, async (req: AuthRequest, res) => {
       where: { id: req.user!.userId },
       data: { legacyInactivityDays: parseInt(inactivityDays) } as any,
     });
-    res.json({ message: 'Legacy settings updated' });
+    sendSuccess(res, null, 'Legacy settings updated');
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to update settings' });
+    sendError(res, 'Failed to update settings');
   }
 });
 
