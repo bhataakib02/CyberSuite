@@ -156,8 +156,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (res.ok) {
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.notifications.filter((n: any) => !n.isRead).length);
+        const notifs = data.data?.notifications || data.notifications || [];
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n: any) => !n.isRead).length);
       }
     } catch (err) {
       console.error('Notification fetch failed', err);
