@@ -57,13 +57,18 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
         };
         response = await fetch(`${BASE_URL}${endpoint}`, { ...config, headers: newHeaders });
       } else {
+        if (refreshRes.status >= 500) {
+          // Temporary server issue, don't logout
+          return response;
+        }
         // Refresh failed, logout user
         logout();
         window.location.href = '/login';
       }
     } catch (err) {
-      logout();
-      window.location.href = '/login';
+      // Network error, don't logout
+      console.error('Refresh request failed', err);
+      return response;
     }
   }
 

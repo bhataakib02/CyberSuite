@@ -281,9 +281,13 @@ router.post('/refresh', async (req, res) => {
     });
 
     sendSuccess(res, { accessToken });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Refresh Error:', err);
-    sendError(res, 'Invalid refresh token', 401);
+    if (err?.code?.startsWith('P') || err?.message?.includes('database')) {
+      sendError(res, 'Database error during refresh', 500);
+    } else {
+      sendError(res, 'Invalid refresh token', 401);
+    }
   }
 });
 
