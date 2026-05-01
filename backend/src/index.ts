@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import 'dotenv/config'; // Force reload of environment
+import prisma from './lib/prisma';
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
@@ -45,14 +46,14 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 }));
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
-const globalLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: { error: 'Too many auth attempts' } });
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many login attempts. Try again later.' } });
+const globalLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5000, standardHeaders: true, legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, message: { error: 'Too many auth attempts' } });
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, message: { error: 'Too many login attempts. Try again later.' } });
 
 app.use(globalLimiter);
 app.use(morgan('dev'));
@@ -95,8 +96,18 @@ initChatSocket(httpServer);
 
 // ── Start server ──────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   console.log(`🚀 CYBERSUITE API running on http://localhost:${PORT}`);
+  
+  try {
+    const maskedUrl = process.env.DATABASE_URL?.replace(/:([^:@]+)@/, ':****@');
+    console.log(`🔌 CONNECTING TO: ${maskedUrl}`);
+    await prisma.$connect();
+    console.log('✅ DATABASE CONNECTED');
+  } catch (err) {
+    console.error('❌ DATABASE CONNECTION FAILED:', err);
+  }
+
   startCronJobs();
 });
 

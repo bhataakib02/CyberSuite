@@ -115,7 +115,15 @@ router.get('/users', authenticate, requireRole('ADMIN'), async (req: AuthRequest
     ]);
 
     console.log(`[Admin] Found ${users.length} users out of ${total} total`);
-    sendSuccess(res, { users }, undefined, 200);
+    sendSuccess(res, { 
+      users,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    }, undefined, 200);
   } catch (err) {
     console.error('Failed to fetch users:', err);
     sendError(res, 'Failed to fetch users');
@@ -160,6 +168,41 @@ router.post('/users/:id/block', authenticate, requireRole('ADMIN'), async (req: 
   }
 });
 
+// ── PATCH /api/admin/users/:id/status ──────────────────────────────────────────
+router.patch('/users/:id/status', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: String(id) } });
+    if (!user) { sendError(res, 'User not found', 404); return; }
+
+    await prisma.user.update({
+      where: { id: String(id) },
+      data: { isActive: !!isActive }
+    });
+
+    if (!isActive) {
+      await prisma.session.updateMany({
+        where: { userId: String(id) },
+        data: { isActive: false }
+      });
+    }
+
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: isActive ? 'ADMIN_UNBLOCK_USER' : 'ADMIN_BLOCK_USER',
+        details: `${isActive ? 'Activated' : 'Suspended'} user ${user.email}`,
+      }
+    });
+
+    sendSuccess(res, { isActive }, `User ${isActive ? 'activated' : 'suspended'} successfully`);
+  } catch (err) {
+    sendError(res, 'Failed to update user status');
+  }
+});
+
 // ── POST /api/admin/users/:id/force-logout ────────────────────────────────────
 router.post('/users/:id/force-logout', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
@@ -177,9 +220,50 @@ router.post('/users/:id/force-logout', authenticate, requireRole('ADMIN'), async
       }
     });
 
-    sendSuccess(res, null, 'All active sessions destroyed for user');
+    sendSuccess(res, null, 'User logged out from all devices');
   } catch (err) {
     sendError(res, 'Failed to force logout');
+  }
+});
+
+// ── POST /api/admin/users/:id/reset-password ──────────────────────────────────
+router.post('/users/:id/reset-password', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({ where: { id: String(id) } });
+    if (!user) { sendError(res, 'User not found', 404); return; }
+
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'ADMIN_RESET_PASSWORD',
+        details: `Triggered password reset for ${user.email}`,
+      }
+    });
+
+    sendSuccess(res, null, 'Password reset initiated');
+  } catch (err) {
+    sendError(res, 'Failed to reset password');
+  }
+});
+
+// ── GET /api/admin/users/:id ──────────────────────────────────────────────────
+router.get('/users/:id', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({
+      where: { id: String(id) },
+      include: {
+        _count: { select: { vaultEntries: true, sessions: true, medicalRecords: true, fileRecords: true } },
+        sessions: { select: { deviceInfo: true, ipAddress: true, lastUsedAt: true, isActive: true }, take: 5, orderBy: { lastUsedAt: 'desc' } },
+        activityLogs: { take: 10, orderBy: { createdAt: 'desc' } }
+      }
+    });
+
+    if (!user) return sendError(res, 'User not found', 404);
+    sendSuccess(res, { user });
+  } catch (err) {
+    sendError(res, 'Failed to fetch user details');
   }
 });
 
@@ -254,39 +338,65 @@ router.get('/system-health', authenticate, requireRole('ADMIN'), async (req: Aut
 router.get('/pending-verifications', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const pending = await prisma.professionalProfile.findMany({
-      where: { status: 'PENDING' },
       include: { user: { select: { name: true, email: true, role: true, createdAt: true } } }
     });
-    sendSuccess(res, { pending });
+    sendSuccess(res, { profiles: pending });
   } catch (err) {
     sendError(res, 'Failed to fetch pending verifications');
   }
 });
 
+// ── GET /api/admin/diag/professionals ──────────────────────────────────────────
+router.get('/diag/professionals', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const all = await prisma.professionalProfile.findMany({ include: { user: true } });
+    sendSuccess(res, { 
+      total: all.length,
+      pending: all.filter(p => p.status === 'PENDING').length,
+      sample: all.slice(0, 2)
+    });
+  } catch (err: any) {
+    sendError(res, err.message);
+  }
+});
+
 // ── POST /api/admin/verify-professional/:id ───────────────────────────────────
 router.post('/verify-professional/:id', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  console.log(`[Admin] Verification request for ${req.params.id}, action: ${req.body.action}`);
   try {
     const { id } = req.params;
-    const { status, reason } = req.body; // 'APPROVE' or 'REJECT'
+    const { action, reason } = req.body;
 
     const profile = await prisma.professionalProfile.findUnique({
       where: { id: String(id) },
       include: { user: true }
     });
 
-    if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
+    if (!profile) {
+      console.warn(`[Admin] Profile ${id} not found`);
+      return sendError(res, 'Profile not found', 404);
+    }
 
-    const newStatus = status === 'APPROVE' ? 'VERIFIED' : 'REJECTED';
+    let newStatus: any = 'PENDING';
+    if (action === 'APPROVE') newStatus = 'VERIFIED';
+    if (action === 'REJECT') newStatus = 'REJECTED';
+    if (action === 'QUERY') newStatus = 'UNDER_REVIEW';
+    if (action === 'RESTORE') newStatus = 'PENDING';
 
+    console.log(`[Admin] Updating profile ${id} status to ${newStatus}`);
     await prisma.professionalProfile.update({
       where: { id: String(id) },
-      data: { status: newStatus as any }
+      data: { 
+        status: newStatus,
+        isVerified: action === 'APPROVE'
+      }
     });
 
-    if (status === 'APPROVE') {
+    if (action === 'APPROVE' || action === 'RESTORE') {
+      console.log(`[Admin] Updating user ${profile.userId} verification status`);
       await prisma.user.update({
         where: { id: profile.userId },
-        data: { isVerified: true }
+        data: { isVerified: action === 'APPROVE' }
       });
     }
 
@@ -294,29 +404,36 @@ router.post('/verify-professional/:id', authenticate, requireRole('ADMIN'), asyn
       data: {
         userId: req.user!.userId,
         action: 'ADMIN_PROFESSIONAL_VERIFY',
-        details: `${status} verification for ${(profile as any).user.email} (${(profile as any).type})${reason ? `. Reason: ${reason}` : ''}`,
+        details: `${action} verification for ${profile.user.email} (${profile.type})${reason ? `. Reason: ${reason}` : ''}`,
       }
     });
 
-    // Create a notification for the user
-    await prisma.notification.create({
-      data: {
-        userId: profile.userId,
-        title: status === 'APPROVE' ? '✅ Professional Verification Approved' : '❌ Professional Verification Rejected',
-        message: status === 'APPROVE'
-          ? `Your ${profile.type} credentials have been verified. You now have full access to professional features.`
-          : `Your verification was rejected.${reason ? ` Reason: ${reason}` : ' Please re-submit with correct documents.'}`,
-        type: 'SECURITY',
-        priority: 'HIGH',
-      }
-    });
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: profile.userId,
+          title: 'Professional Verification Update',
+          message: action === 'APPROVE' 
+            ? 'Your professional credentials have been verified.' 
+            : action === 'QUERY' 
+              ? 'Additional information is required for your verification.'
+              : 'Your professional verification was rejected.',
+          type: 'SYSTEM',
+          priority: 'HIGH'
+        }
+      });
+    } catch (notifErr) {
+      console.error('[Admin] Notification failed:', notifErr);
+      // Don't fail the whole request if only notification fails
+    }
 
-    sendSuccess(res, null, `Professional ${status === 'APPROVE' ? 'verified' : 'rejected'} successfully`);
-  } catch (err) {
-    sendError(res, 'Failed to verify professional');
+    console.log(`[Admin] Verification complete for ${profile.user.email}`);
+    sendSuccess(res, null, `Profile ${newStatus.toLowerCase()} successfully`);
+  } catch (err: any) {
+    console.error('[Admin] Verification CRASH:', err);
+    sendError(res, err.message || 'Verification failed');
   }
 });
-
 // ── GET /api/admin/incidents ──────────────────────────────────────────────────
 router.get('/incidents', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
   try {

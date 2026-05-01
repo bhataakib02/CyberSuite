@@ -44,7 +44,8 @@ export default function ProfessionalVerificationPage() {
     try {
       const res = await apiFetch('/admin/pending-verifications'); // Reusing existing or I'll expand it
       if (res.ok) {
-        const data = await res.json();
+        const d = await res.json();
+        const data = d.data || d;
         setProfiles(data.profiles || []);
       }
     } catch (err) {
@@ -158,22 +159,30 @@ export default function ProfessionalVerificationPage() {
                         icon={CheckCircle2} 
                         color="emerald" 
                         onClick={() => handleVerify(profile.id, 'APPROVE')} 
-                        disabled={profile.status !== 'PENDING'}
+                        disabled={profile.status !== 'PENDING' && profile.status !== 'UNDER_REVIEW'}
                       />
                       <ActionButton 
                         label="Request Clarification" 
                         icon={Info} 
                         color="blue" 
                         onClick={() => handleVerify(profile.id, 'QUERY')} 
-                        disabled={profile.status !== 'PENDING'}
+                        disabled={profile.status !== 'PENDING' && profile.status !== 'UNDER_REVIEW'}
                       />
                       <ActionButton 
                         label="Reject Identity" 
                         icon={XCircle} 
                         color="red" 
                         onClick={() => handleVerify(profile.id, 'REJECT')} 
-                        disabled={profile.status !== 'PENDING'}
+                        disabled={profile.status !== 'PENDING' && profile.status !== 'UNDER_REVIEW'}
                       />
+                      {(profile.status === 'VERIFIED' || profile.status === 'REJECTED') && (
+                        <ActionButton 
+                          label="Restore to Audit" 
+                          icon={Clock} 
+                          color="zinc" 
+                          onClick={() => handleVerify(profile.id, 'RESTORE')} 
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -231,6 +240,7 @@ function ActionButton({ label, icon: Icon, color, onClick, disabled }: any) {
     emerald: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500 hover:text-white shadow-emerald-500/10',
     red: 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white shadow-red-500/10',
     blue: 'bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500 hover:text-white shadow-blue-500/10',
+    zinc: 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white hover:text-black',
   };
 
   return (

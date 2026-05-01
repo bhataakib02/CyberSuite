@@ -16,7 +16,7 @@ const addEntrySchema = z.object({
 });
 
 // GET /api/vault — list all entries for user
-router.get('/', authenticate, requireRole('USER'), async (req: AuthRequest, res) => {
+router.get('/', authenticate, requireRole('USER', 'ADMIN', 'DOCTOR', 'LAWYER', 'STUDENT', 'ACADEMIC'), async (req: AuthRequest, res) => {
   const entries = await prisma.vaultEntry.findMany({
     where: { userId: req.user!.userId },
     orderBy: { createdAt: 'desc' },
@@ -35,7 +35,7 @@ router.get('/', authenticate, requireRole('USER'), async (req: AuthRequest, res)
 });
 
 // POST /api/vault — add entry
-router.post('/', authenticate, requireRole('USER'), validate(addEntrySchema), async (req: AuthRequest, res) => {
+router.post('/', authenticate, requireRole('USER', 'ADMIN', 'DOCTOR', 'LAWYER', 'STUDENT', 'ACADEMIC'), validate(addEntrySchema), async (req: AuthRequest, res) => {
   const { encryptedData, category, strength } = req.body;
   const entry = await prisma.vaultEntry.create({
     data: { userId: req.user!.userId, encryptedData, category, strength: strength || 0 } as any,
@@ -45,7 +45,7 @@ router.post('/', authenticate, requireRole('USER'), validate(addEntrySchema), as
 });
 
 // PUT /api/vault/:id — update entry
-router.put('/:id', authenticate, requireRole('USER'), validate(addEntrySchema), async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, requireRole('USER', 'ADMIN', 'DOCTOR', 'LAWYER', 'STUDENT', 'ACADEMIC'), validate(addEntrySchema), async (req: AuthRequest, res) => {
   const entry = await prisma.vaultEntry.findFirst({
     where: { id: String(req.params.id), userId: req.user!.userId },
   });
@@ -59,7 +59,7 @@ router.put('/:id', authenticate, requireRole('USER'), validate(addEntrySchema), 
 });
 
 // DELETE /api/vault/:id — delete entry
-router.delete('/:id', authenticate, requireRole('USER'), async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, requireRole('USER', 'ADMIN', 'DOCTOR', 'LAWYER', 'STUDENT', 'ACADEMIC'), async (req: AuthRequest, res) => {
   const entry = await prisma.vaultEntry.findFirst({
     where: { id: String(req.params.id), userId: req.user!.userId },
   });
@@ -69,7 +69,7 @@ router.delete('/:id', authenticate, requireRole('USER'), async (req: AuthRequest
 });
 
 // DELETE /api/vault/:id/shred — Permanently destroy entry
-router.delete('/:id/shred', authenticate, requireRole('USER'), async (req: AuthRequest, res) => {
+router.delete('/:id/shred', authenticate, requireRole('USER', 'ADMIN', 'DOCTOR', 'LAWYER', 'STUDENT', 'ACADEMIC'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     

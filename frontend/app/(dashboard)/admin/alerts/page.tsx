@@ -47,7 +47,8 @@ export default function AlertsPage() {
     try {
       const res = await apiFetch('/admin/alerts');
       if (res.ok) {
-        const data = await res.json();
+        const d = await res.json();
+        const data = d.data || d;
         setAlerts(data.alerts || []);
       }
     } catch (err) {

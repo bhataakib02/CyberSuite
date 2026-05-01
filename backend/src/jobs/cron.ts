@@ -8,7 +8,7 @@ export function startCronJobs() {
   // Run daily at 9am — check for warranties expiring within 30 days
   cron.schedule('0 9 * * *', async () => {
     try {
-      console.log('[Cron] Checking expiring warranties...');
+      // console.log('[Cron] Checking expiring warranties...');
       const now = new Date();
       const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
@@ -114,9 +114,9 @@ export function startCronJobs() {
       const deleted = await prisma.message.deleteMany({
         where: { selfDestruct: true, destructAt: { lte: new Date() } },
       });
-      if (deleted.count > 0) {
+      /* if (deleted.count > 0) {
         console.log(`[Cron] Cleaned ${deleted.count} self-destruct messages`);
-      }
+      } */
     } catch (err: any) {
       console.warn('[Cron] Message cleanup skipped — DB unavailable');
     }
@@ -139,7 +139,7 @@ export function startCronJobs() {
   // Run daily at 10am — check for subscriptions due in 3 days
   cron.schedule('0 10 * * *', async () => {
     try {
-      console.log('[Cron] Checking upcoming subscriptions...');
+      // console.log('[Cron] Checking upcoming subscriptions...');
       const now = new Date();
       const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
@@ -185,7 +185,7 @@ export function startCronJobs() {
   // Run daily at 11am — check for inactive users (Legacy Transfer)
   cron.schedule('0 11 * * *', async () => {
     try {
-      console.log('[Cron] Checking for inactive users (Legacy Protocol)...');
+      // console.log('[Cron] Checking for inactive users (Legacy Protocol)...');
       
       const users = await prisma.user.findMany({
         include: { trustedContacts: true }
@@ -227,7 +227,7 @@ export function startCronJobs() {
   // Run every 10 minutes — Sentinel AI Analysis
   cron.schedule('*/10 * * * *', async () => {
     try {
-      console.log('[Cron] Running Sentinel AI Analysis...');
+      // console.log('[Cron] Running Sentinel AI Analysis...');
       await SentinelService.analyzeRecentLogs(60); // Analyze last 60 minutes
     } catch (err: any) {
       console.warn('[Cron] Sentinel Analysis skipped — DB unavailable', err);

@@ -42,7 +42,8 @@ export default function IncidentsPage() {
     try {
       const res = await apiFetch('/admin/incidents');
       if (res.ok) {
-        const data = await res.json();
+        const d = await res.json();
+        const data = d.data || d;
         setIncidents(data.incidents || []);
       }
     } catch (err) {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { apiFetch } from '@/lib/api';
 import {
   Shield,
   MessageSquare,
@@ -151,12 +152,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/notifications', {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
-      const data = await res.json();
+      const res = await apiFetch('/notifications');
       if (res.ok) {
-        const notifs = data.data?.notifications || data.notifications || [];
+        const d = await res.json();
+        const data = d.data || d;
+        const notifs = data.notifications || [];
         setNotifications(notifs);
         setUnreadCount(notifs.filter((n: any) => !n.isRead).length);
       }
@@ -167,13 +167,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const markAsRead = async (id: string) => {
     try {
-      await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}` }
+      const res = await apiFetch(`/notifications/${id}/read`, {
+        method: 'POST'
       });
-      fetchNotifications();
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to mark notification as read', err);
     }
   };
 

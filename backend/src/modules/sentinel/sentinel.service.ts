@@ -21,7 +21,7 @@ export class SentinelService {
 
     if (logs.length === 0) return;
 
-    console.log(`[Sentinel] Analyzing ${logs.length} logs...`);
+    // console.log(`[Sentinel] Analyzing ${logs.length} logs...`);
 
     // 1. Detect Bruteforce (Multiple failures for same email/IP)
     await this.detectBruteforce(logs);

@@ -27,7 +27,8 @@ export default function AdminActivityPage() {
       try {
         const res = await apiFetch('/admin/audit-logs?action=ADMIN'); // Assuming filtering works
         if (res.ok) {
-          const data = await res.json();
+          const d = await res.json();
+          const data = d.data || d;
           setLogs(data.logs || []);
         }
       } catch (err) {
