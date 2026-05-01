@@ -53,6 +53,11 @@ test_*.js
 verify_*.js
 soc-db-*.mjs
 gen_token.js
+seed-admin.mjs
+
+# next-pwa generated files (regenerated on build)
+public/sw.js
+public/workbox-*.js
 
 # OS Generated Files
 .DS_Store
