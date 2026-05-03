@@ -22,7 +22,6 @@ import {
   Menu,
   X,
   Bell,
-  Settings,
   Search,
   ShieldAlert,
   FolderLock,

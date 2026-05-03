@@ -12,6 +12,9 @@ const prisma = new PrismaClient({
 
 async function main() {
   console.log('🧹 Deep Cleaning Database...');
+  await prisma.authenticator.deleteMany({});
+  await prisma.session.deleteMany({});
+  await prisma.message.deleteMany({});
   await prisma.consultationMessage.deleteMany({});
   await prisma.consultation.deleteMany({});
   await prisma.review.deleteMany({});
@@ -19,6 +22,21 @@ async function main() {
   await prisma.vaultEntry.deleteMany({});
   await prisma.expense.deleteMany({});
   await prisma.medicalRecord.deleteMany({});
+  await prisma.warranty.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.reminder.deleteMany({});
+  await prisma.fileRecord.deleteMany({});
+  await prisma.subscription.deleteMany({});
+  await prisma.trustedContact.deleteMany({});
+  await prisma.recoveryBackup.deleteMany({});
+  await prisma.contract.deleteMany({});
+  await prisma.groupMember.deleteMany({});
+  await prisma.vaultEntry.deleteMany({});
+  await prisma.group.deleteMany({});
+  await prisma.incident.deleteMany({});
+  await prisma.alert.deleteMany({});
+  await prisma.adminAction.deleteMany({});
+  await prisma.activityLog.deleteMany({});
   await prisma.user.deleteMany({ where: { email: { not: 'thefreelancer2076@gmail.com' } } });
 
   console.log('🚀 Finalizing Master Admin...');
