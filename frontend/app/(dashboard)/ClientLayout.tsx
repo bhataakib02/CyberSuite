@@ -16,6 +16,9 @@ import {
   Stethoscope,
   Briefcase,
   LogOut,
+  Settings,
+  HelpCircle,
+  Usb,
   Menu,
   X,
   Bell,
@@ -67,6 +70,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const navigation = [
     { section: 'SOC Operations', roles: ['ADMIN'] },
+    { name: 'SOC Command Center', href: '/admin/soc', icon: ShieldAlert, roles: ['ADMIN'] },
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['ADMIN'] },
     { name: 'Attack Map', href: '/admin/map', icon: Globe, roles: ['ADMIN'] },
     { name: 'Users', href: '/admin/users', icon: Users, roles: ['ADMIN'] },
@@ -88,6 +92,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     
     { section: 'Identity & Professional', roles: ['USER', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF'] },
     { name: t('identity'), href: '/identity', icon: UserCheck, roles: allRoles },
+    { name: 'Private Verification (ZKP)', href: '/identity/private-verify', icon: Fingerprint, roles: allRoles },
     { name: t('professionals', 'Professional Hub'), href: '/professionals', icon: Briefcase, roles: ['USER', 'STUDENT', 'ACADEMIC'] },
     { name: 'Student Hub', href: '/student', icon: GraduationCap, roles: ['STUDENT', 'USER'] },
     { name: 'Academic Hub', href: '/academic', icon: BookOpen, roles: ['ACADEMIC'] },
@@ -98,6 +103,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { name: 'Case Manager', href: '/lawyer', icon: Scale, roles: ['LAWYER'] },
     // ── Emergency ─────────────────────────────────────────────────────────
     { name: 'Emergency ID', href: '/emergency', icon: ShieldAlert, roles: ['EMERGENCY_PROFILE'] },
+
+    { section: 'System & Security', roles: allRoles },
+    { name: t('settings'), href: '/settings', icon: Settings, roles: allRoles },
+    { name: 'Hardware Security', href: '/settings/security/webauthn', icon: Usb, roles: allRoles },
+    { name: t('help'), href: '/help', icon: HelpCircle, roles: allRoles },
   ].filter(item => {
     const userRole = (user?.role || 'USER').toUpperCase();
     return item.roles.some(role => role.toUpperCase() === userRole);

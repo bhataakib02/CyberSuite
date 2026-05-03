@@ -113,4 +113,41 @@ router.post('/check-password', authenticate, async (req: AuthRequest, res) => {
     : 'This password has not been found in known breaches.');
 });
 
+import { ZKPService } from './zkp.service';
+
+// ── GET /api/identity/zkp/challenge ──────────────────────────────────────────
+router.get('/zkp/challenge', authenticate, (req, res) => {
+  sendSuccess(res, { 
+    challenge: ZKPService.generateChallenge(),
+    nonce: ZKPService.generateNonce() 
+  });
+});
+
+// ── POST /api/identity/zkp/verify ───────────────────────────────────────────
+router.post('/zkp/verify', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const { attribute, proof } = req.body;
+    
+    const isValid = ZKPService.verifyAttributeProof(attribute, proof);
+    
+    if (isValid) {
+      // If valid, we might want to update the user's "Private Verified Attributes" in the DB
+      // For now, we'll just return success and log it
+      await prisma.activityLog.create({
+        data: { 
+          userId: req.user!.userId, 
+          action: 'IDENTITY_ZKP_VERIFY', 
+          details: `Successfully verified private attribute: ${attribute}` 
+        }
+      });
+      
+      return sendSuccess(res, { verified: true }, `Private attribute "${attribute}" verified successfully.`);
+    } else {
+      return sendError(res, 'Cryptographic proof verification failed', 400);
+    }
+  } catch (err) {
+    sendError(res, 'Internal ZKP engine error');
+  }
+});
+
 export default router;

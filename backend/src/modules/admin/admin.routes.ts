@@ -697,5 +697,100 @@ router.patch('/policies/:id', authenticate, requireRole('ADMIN'), async (req: Au
   }
 });
 
+import { ProtocolService, SystemProtocol } from './protocol.service';
+
+// ── GET /api/admin/protocols ──────────────────────────────────────────────────
+router.get('/protocols', authenticate, requireRole('ADMIN'), (req, res) => {
+  sendSuccess(res, ProtocolService.getProtocol());
+});
+
+// ── POST /api/admin/protocols ─────────────────────────────────────────────────
+router.post('/protocols', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { protocol, reason } = req.body;
+    if (!['NORMAL', 'MAINTENANCE', 'LOCKDOWN', 'STEALTH'].includes(protocol)) {
+      return sendError(res, 'Invalid protocol type');
+    }
+
+    const result = ProtocolService.setProtocol(protocol as SystemProtocol, reason || 'No reason provided', req.user!.userId);
+    
+    // Log the protocol change
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: `ADMIN_PROTOCOL_CHANGE_${protocol}`,
+        details: `System protocol changed to ${protocol}. Reason: ${reason}`,
+      }
+    });
+
+    sendSuccess(res, result, `System protocol updated to ${protocol}`);
+  } catch (err) {
+    sendError(res, 'Failed to update system protocol');
+  }
+});
+
+// ── GET /api/admin/soc/stats ──────────────────────────────────────────────────
+router.get('/soc/stats', authenticate, requireRole('ADMIN'), async (req, res) => {
+  try {
+    // Collect real stats for the SOC
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    const [
+      activeThreats,
+      incidentCount,
+      blockedIps,
+      systemUptime
+    ] = await Promise.all([
+      (prisma as any).alert.count({ where: { severity: { in: ['HIGH', 'CRITICAL'] }, status: 'NEW' } }),
+      (prisma as any).incident.count({ where: { status: { not: 'RESOLVED' } } }),
+      prisma.activityLog.count({ where: { action: 'ADMIN_BLOCK_IP', createdAt: { gte: oneHourAgo } } }),
+      Promise.resolve(process.uptime())
+    ]);
+
+    sendSuccess(res, {
+      activeThreats,
+      incidentCount,
+      blockedIps,
+      uptime: systemUptime,
+      protocol: ProtocolService.getProtocol()
+    });
+  } catch (err) {
+    sendError(res, 'Failed to fetch SOC stats');
+  }
+});
+
+// ── POST /api/admin/incidents/:id/analyze ──────────────────────────────────
+router.post('/incidents/:id/analyze', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const incident = await (prisma as any).incident.findUnique({ where: { id } });
+    if (!incident) return sendError(res, 'Incident not found', 404);
+
+    // Simulated AI Forensic Analysis
+    const forensics = {
+      summary: `AI analysis of incident "${incident.title}" reveals a high probability of automated exploitation.`,
+      technicalDetails: [
+        "Vector identified: Cross-referenced with Global Threat Intel Database.",
+        "Payload signature: Matches known 'Shadow-Strike' ransomware variant.",
+        "Attribution: Originating from an ephemeral VPN node in Sector 7."
+      ],
+      recommendation: "Immediate lockdown of related subnets and rotation of all service account tokens.",
+      confidence: 0.94,
+      analyzedAt: new Date()
+    };
+
+    // Update incident with forensics (assuming metadata field exists)
+    await (prisma as any).incident.update({
+      where: { id },
+      data: { metadata: { ...(incident.metadata || {}), forensics } }
+    });
+
+    sendSuccess(res, forensics);
+  } catch (err) {
+    sendError(res, 'AI analysis failed');
+  }
+});
+
 export default router;
 

@@ -92,7 +92,7 @@ export class SentinelService {
     }
   }
 
-  private static async triggerAlert(data: {
+  static async triggerAlert(data: {
     userId?: string;
     type: string;
     severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -100,21 +100,52 @@ export class SentinelService {
     ipAddress?: string;
     metadata?: any;
   }) {
-    await (prisma as any).alert.create({
+    // Simulate GeoIP for the SOC Map
+    const metadata = data.metadata || {};
+    if (!metadata.coords && data.ipAddress) {
+      metadata.coords = this.getSimulatedCoords(data.ipAddress);
+    }
+
+    const alert = await (prisma as any).alert.create({
       data: {
         userId: data.userId,
         type: data.type,
         severity: data.severity,
         message: data.message,
         ipAddress: data.ipAddress,
-        metadata: data.metadata,
+        metadata,
       },
     });
 
-    console.log(`[Sentinel ALERT] ${data.type}: ${data.message}`);
+    // Trigger Automated Playbook
+    import('../admin/playbook.service').then(({ PlaybookService }) => {
+      PlaybookService.evaluateAlert(alert).catch(err => console.error('Playbook evaluation failed', err));
+    });
+
+    console.log(`[Sentinel ALERT] ${data.type}: ${data.message} | Coords: ${JSON.stringify(metadata.coords)}`);
   }
 
-  private static async triggerIncident(data: {
+  /**
+   * Generates a deterministic but varied coordinate based on an IP string
+   */
+  private static getSimulatedCoords(ip: string): [number, number] {
+    // Simple hash to get semi-consistent random numbers
+    let hash = 0;
+    for (let i = 0; i < ip.length; i++) {
+      hash = ((hash << 5) - hash) + ip.charCodeAt(i);
+      hash |= 0;
+    }
+    
+    // Convert hash to lat/lng within world bounds
+    // Longitude: -180 to 180
+    // Latitude: -60 to 80 (mostly land/populated areas)
+    const lng = ((Math.abs(hash) % 36000) / 100) - 180;
+    const lat = ((Math.abs(hash * 7) % 14000) / 100) - 60;
+    
+    return [lng, lat];
+  }
+
+  static async triggerIncident(data: {
     title: string;
     description: string;
     severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

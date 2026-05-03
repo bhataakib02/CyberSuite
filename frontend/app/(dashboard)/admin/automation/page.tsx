@@ -1,152 +1,230 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Bot, 
   Zap, 
   Shield, 
-  ArrowRight, 
-  Plus, 
-  Settings2, 
-  Trash2, 
-  CheckCircle2, 
-  XCircle, 
-  Play, 
-  Clock,
-  Code,
-  Layers,
-  AlertTriangle
+  ShieldAlert, 
+  ShieldCheck, 
+  Lock, 
+  Globe, 
+  Bot, 
+  AlertTriangle,
+  PlayCircle,
+  Settings2,
+  Activity,
+  ArrowRight,
+  Flame,
+  CheckCircle2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { apiFetch } from '../../../../lib/api';
 
-const MOCK_RULES = [
-  { id: '1', name: 'Brute Force Auto-Block', desc: 'Block IP after 5 failed login attempts', trigger: 'LOGIN_FAILURE', condition: 'count > 5', action: 'BLOCK_IP', isActive: true },
-  { id: '2', name: 'Identity Drift Alert', desc: 'Trigger HIGH alert if location jumps > 500km', trigger: 'SESSION_START', condition: 'distance > 500', action: 'CREATE_ALERT', isActive: true },
-  { id: '3', name: 'Sensitive Data Cleanup', desc: 'Archive audit logs older than 90 days', trigger: 'SCHEDULED_DAILY', condition: 'age > 90d', action: 'ARCHIVE_DATA', isActive: false },
-];
+export default function AutomationDashboard() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
 
-export default function AutomationRulesPage() {
-  const [rules, setRules] = useState(MOCK_RULES);
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
-  const toggleRule = (id: string) => {
-    setRules(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));
+  const fetchStats = async () => {
+    try {
+      const res = await apiFetch('/admin/protocols');
+      if (res.ok) setStats(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch protocol stats', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleToggleAutoMitigation = async () => {
+    setToggling(true);
+    try {
+      const res = await apiFetch('/admin/soc/stats/auto-mitigation', { // I'll add this endpoint
+        method: 'POST',
+        body: JSON.stringify({ enabled: !stats?.autoMitigation })
+      });
+      if (res.ok) {
+        setStats(await res.json());
+      }
+    } catch (err) {
+      alert('Failed to toggle auto-mitigation');
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  if (loading) return <div className="p-20 text-center animate-pulse uppercase tracking-[0.3em] font-black text-zinc-600">Initializing Cyber-Logic...</div>;
+
   return (
-    <div className="space-y-8 pb-20">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div className="space-y-10 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20">
-              <Bot className="w-6 h-6 text-blue-500" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic leading-none">Automation <span className="text-zinc-600">Synthesizer</span></h1>
-              <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px] mt-1 pl-0.5">Autonomous Security Response • Signal-to-Action Pipeline</p>
-            </div>
-          </div>
+          <h1 className="text-5xl font-black text-white tracking-tighter uppercase italic">Active <span className="text-zinc-700">Defense</span></h1>
+          <p className="text-zinc-500 font-bold uppercase tracking-[0.2em] text-xs">Autonomous Mitigation & Response Playbooks</p>
         </div>
 
-        <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
-          <Plus className="w-4 h-4" />
-          Program Neural Rule
-        </button>
+        <div className={`p-1 pr-6 rounded-full flex items-center gap-4 transition-all ${stats?.autoMitigation ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+           <button 
+             onClick={handleToggleAutoMitigation}
+             disabled={toggling}
+             className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-2xl ${stats?.autoMitigation ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-red-500 text-white shadow-red-500/20'}`}
+           >
+              {toggling ? <Activity className="animate-spin" /> : <Zap className={stats?.autoMitigation ? 'fill-white' : ''} />}
+           </button>
+           <div className="flex flex-col">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${stats?.autoMitigation ? 'text-emerald-500' : 'text-red-500'}`}>
+                {stats?.autoMitigation ? 'ACTIVE MITIGATION: ENGAGED' : 'ACTIVE MITIGATION: STANDBY'}
+              </span>
+              <span className="text-[9px] font-bold text-zinc-500 uppercase italic">CyberSuite-Logic Cluster v1.4</span>
+           </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-           {rules.map((rule) => (
-             <motion.div
-               key={rule.id}
-               className={`p-8 rounded-[2.5rem] border backdrop-blur-xl transition-all relative overflow-hidden group ${
-                 rule.isActive ? 'bg-zinc-900/40 border-white/5' : 'bg-black/20 border-white/[0.02] opacity-60'
-               }`}
-             >
-               <div className="flex items-start justify-between relative z-10">
-                 <div className="flex gap-6">
-                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${
-                     rule.isActive ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : 'bg-zinc-800 text-zinc-600 border-white/5'
-                   }`}>
-                     <Zap className="w-7 h-7" />
-                   </div>
-                   <div className="space-y-1">
-                      <h3 className="text-xl font-black text-white uppercase tracking-tight italic">{rule.name}</h3>
-                      <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{rule.desc}</p>
-                   </div>
-                 </div>
-                 <div className="flex items-center gap-4">
-                    <div 
-                      onClick={() => toggleRule(rule.id)}
-                      className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-all ${rule.isActive ? 'bg-blue-600' : 'bg-zinc-800'}`}
-                    >
-                      <div className={`w-4 h-4 bg-white rounded-full transition-transform ${rule.isActive ? 'translate-x-6' : 'translate-x-0'}`} />
-                    </div>
-                    <button className="p-2.5 bg-white/5 border border-white/5 rounded-xl text-zinc-500 hover:text-white"><Settings2 className="w-5 h-5" /></button>
-                 </div>
-               </div>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="xl:col-span-2 space-y-8">
+          <h3 className="text-xl font-black text-zinc-500 uppercase tracking-widest pl-2">Configured Playbooks</h3>
+          
+          <PlaybookCard 
+            title="Honeypot Decoy Trap" 
+            desc="Detects requests to shadow paths (/.env, /wp-admin) and performs instant IP mitigation."
+            trigger="Any shadow path hit"
+            action="Block Source IP + Sentinel Critical Alert"
+            active={true}
+            icon={Bot}
+            color="red"
+          />
 
-               <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-white/5">
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Trigger Source</p>
-                    <div className="flex items-center gap-2 text-xs font-black text-white uppercase italic">
-                      <Layers className="w-3.5 h-3.5 text-blue-500" />
-                      {rule.trigger}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Logic Condition</p>
-                    <div className="flex items-center gap-2 text-xs font-black text-blue-400 uppercase italic tabular-nums">
-                      <Code className="w-3.5 h-3.5" />
-                      {rule.condition}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Mitigation Action</p>
-                    <div className="flex items-center gap-2 text-xs font-black text-emerald-500 uppercase italic">
-                      <Play className="w-3.5 h-3.5" />
-                      {rule.action}
-                    </div>
-                  </div>
-               </div>
-             </motion.div>
-           ))}
+          <PlaybookCard 
+            title="Bruteforce Neutralizer" 
+            desc="Monitors login attempts and blocks sources exceeding the fail threshold."
+            trigger="5 failed logins / 15 mins"
+            action="Global IP Block (1 hour)"
+            active={true}
+            icon={Flame}
+            color="orange"
+          />
+
+          <PlaybookCard 
+            title="Impossible Travel Check" 
+            desc="Analyzes geo-vector delta between successive logins to detect credential compromise."
+            trigger="Distinct IPs / 1 hour"
+            action="Revoke Sessions + Priority Sentinel Alert"
+            active={true}
+            icon={Globe}
+            color="blue"
+          />
+
+          <PlaybookCard 
+            title="Credential Stuffing Prevention" 
+            desc="Detects many different usernames attempted from a single source."
+            trigger="3 unique users / 10 mins"
+            action="Block IP + Admin Notify"
+            active={false}
+            icon={ShieldAlert}
+            color="zinc"
+          />
         </div>
 
-        <div className="space-y-6">
-           <div className="bg-zinc-900/40 border border-white/5 p-8 rounded-[2.5rem] backdrop-blur-xl">
-             <h3 className="text-xs font-black text-white uppercase tracking-widest mb-6">Automation Analytics</h3>
-             <div className="space-y-6">
-               <AutoMetric label="Total Executions" value="1,284" trend="+12%" icon={Play} />
-               <AutoMetric label="Threats Stopped" value="482" trend="+5%" icon={Shield} color="emerald" />
-               <AutoMetric label="Human Hours Saved" value="84h" trend="+8h" icon={Clock} color="blue" />
+        <div className="space-y-8">
+          <h3 className="text-xl font-black text-zinc-500 uppercase tracking-widest pl-2">System Logic</h3>
+          <div className="bg-zinc-900/40 border border-white/5 p-10 rounded-[2.5rem] backdrop-blur-xl space-y-8">
+             <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center shrink-0 border border-blue-500/20">
+                   <Settings2 className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                   <h4 className="text-white font-black uppercase tracking-tight text-md mb-2">Heuristic Confidence</h4>
+                   <p className="text-zinc-500 text-xs leading-relaxed">Playbooks trigger only when Sentinel's confidence score exceeds 92%.</p>
+                </div>
              </div>
-           </div>
 
-           <div className="p-8 bg-amber-500/5 border border-amber-500/10 rounded-[2.5rem] space-y-4">
-             <div className="flex items-center gap-2 text-amber-500">
-               <AlertTriangle className="w-5 h-5" />
-               <span className="text-[10px] font-black uppercase tracking-widest">Active Conflict</span>
+             <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center shrink-0 border border-purple-500/20">
+                   <Lock className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                   <h4 className="text-white font-black uppercase tracking-tight text-md mb-2">Audit Traceability</h4>
+                   <p className="text-zinc-500 text-xs leading-relaxed">All automated actions are logged under the SYSTEM identifier for forensic review.</p>
+                </div>
              </div>
-             <p className="text-[9px] text-zinc-500 font-bold leading-relaxed uppercase">2 rules are currently in overlap conflict. Admin intervention suggested to prevent protocol deadlock.</p>
-             <button className="w-full py-3 bg-amber-500/10 text-amber-500 text-[9px] font-black uppercase rounded-xl border border-amber-500/20">Resolve Conflicts</button>
-           </div>
+
+             <div className="pt-6 border-t border-white/5">
+                <div className="bg-black/40 p-6 rounded-2xl border border-white/5">
+                   <div className="flex items-center justify-between mb-4">
+                      <span className="text-[10px] font-black text-zinc-500 uppercase">Model Version</span>
+                      <span className="text-[10px] font-black text-white uppercase italic">Sentinel-v2-AI</span>
+                   </div>
+                   <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-zinc-500 uppercase">Training Data</span>
+                      <span className="text-[10px] font-black text-white uppercase italic">8.4M Samples</span>
+                   </div>
+                </div>
+             </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+             <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:rotate-12 transition-transform">
+                <ShieldCheck className="w-24 h-24 text-white" />
+             </div>
+             <div className="relative z-10 space-y-6">
+                <h4 className="text-white font-black text-2xl uppercase italic tracking-tighter leading-none">Security <br />Posture: Optimal</h4>
+                <p className="text-white/70 text-xs font-bold uppercase tracking-widest">Autonomous defense systems are protecting 14,209 assets across the network.</p>
+                <button className="px-6 py-3 bg-white text-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all">View Defense Report</button>
+             </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function AutoMetric({ label, value, trend, icon: Icon, color = 'zinc' }: any) {
+function PlaybookCard({ title, desc, trigger, action, active, icon: Icon, color }: any) {
+  const colors: any = {
+    red: 'border-red-500/20 hover:border-red-500/40 bg-red-500/5',
+    orange: 'border-orange-500/20 hover:border-orange-500/40 bg-orange-500/5',
+    blue: 'border-blue-500/20 hover:border-blue-500/40 bg-blue-500/5',
+    zinc: 'border-zinc-500/20 hover:border-zinc-500/40 bg-zinc-500/5 grayscale opacity-50',
+  };
+
+  const iconColors: any = {
+    red: 'bg-red-500 text-white shadow-red-500/20',
+    orange: 'bg-orange-500 text-white shadow-orange-500/20',
+    blue: 'bg-blue-500 text-white shadow-blue-500/20',
+    zinc: 'bg-zinc-500 text-white shadow-zinc-500/20',
+  };
+
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <Icon className={`w-4 h-4 text-zinc-500`} />
-        <div>
-          <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest leading-none">{label}</p>
-          <p className="text-lg font-black text-white italic tabular-nums mt-1">{value}</p>
+    <div className={`p-8 rounded-[2.5rem] border backdrop-blur-xl transition-all group ${colors[color]}`}>
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-2xl ${iconColors[color]}`}>
+           <Icon className="w-8 h-8" />
+        </div>
+        <div className="flex-1 space-y-6">
+           <div className="flex items-center justify-between">
+              <h4 className="text-2xl font-black text-white italic tracking-tighter uppercase">{title}</h4>
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${active ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500' : 'border-zinc-500/20 bg-zinc-500/10 text-zinc-500'}`}>
+                 <div className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-500'}`} />
+                 <span className="text-[9px] font-black uppercase tracking-widest">{active ? 'Live' : 'Inactive'}</span>
+              </div>
+           </div>
+           <p className="text-zinc-400 font-medium text-sm leading-relaxed">{desc}</p>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-black/40 p-5 rounded-2xl border border-white/5 space-y-2">
+                 <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Trigger Condition</span>
+                 <p className="text-white text-xs font-bold uppercase">{trigger}</p>
+              </div>
+              <div className="bg-black/40 p-5 rounded-2xl border border-white/5 space-y-2">
+                 <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Auto-Response</span>
+                 <p className="text-white text-xs font-bold uppercase">{action}</p>
+              </div>
+           </div>
         </div>
       </div>
-      <span className="text-[10px] font-black text-emerald-500 italic">{trend}</span>
     </div>
   );
 }

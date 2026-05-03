@@ -2,9 +2,27 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Shield, FileText, Stethoscope, Key, ArrowRight, X, Command as CommandIcon, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { 
+  Search, 
+  Shield, 
+  FileText, 
+  Stethoscope, 
+  Key, 
+  ArrowRight, 
+  X, 
+  Command as CommandIcon, 
+  ShieldAlert, 
+  ShieldCheck,
+  Lock,
+  Zap,
+  LayoutDashboard,
+  Fingerprint,
+  Target,
+  Activity
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../lib/api';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,6 +30,7 @@ export default function CommandPalette() {
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { user } = useAuthStore();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -27,6 +46,24 @@ export default function CommandPalette() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
+
+  const handleAction = async (action: string, param?: string) => {
+    if (action === 'PROTOCOL') {
+      const reason = prompt(`Reason for emergency ${param} protocol:`);
+      if (!reason) return;
+      
+      try {
+        const res = await apiFetch('/admin/protocols', {
+          method: 'POST',
+          body: JSON.stringify({ protocol: param, reason })
+        });
+        if (res.ok) alert(`System switched to ${param} mode.`);
+      } catch (err) {
+        alert('Action failed.');
+      }
+    }
+    setIsOpen(false);
+  };
 
   useEffect(() => {
     if (!query || query.length < 2) {
@@ -83,7 +120,7 @@ export default function CommandPalette() {
           <input
             autoFocus
             type="text"
-            placeholder="Search vault, warranties, medical records..."
+            placeholder="Type a command or search..."
             className="flex-1 bg-transparent border-none outline-none text-white text-lg placeholder-zinc-600 font-medium"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -96,64 +133,89 @@ export default function CommandPalette() {
           </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2">
+        <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
           {isLoading ? (
             <div className="p-8 text-center text-zinc-500 font-black uppercase tracking-widest text-xs">
               Searching Secure Nodes...
             </div>
           ) : results.length > 0 ? (
-            results.map((result, idx) => {
-              const Icon = getIcon(result.type);
-              return (
-                <button
-                  key={`${result.type}-${result.id}`}
-                  onClick={() => {
-                    router.push(result.path);
-                    setIsOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-blue-600/10 border border-white/5 hover:border-blue-500/30 rounded-2xl group transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-blue-400 group-hover:bg-blue-500/5 transition-colors">
-                      <Icon className="w-5 h-5" />
+            <div className="space-y-2">
+              {results.map((result, idx) => {
+                const Icon = getIcon(result.type);
+                return (
+                  <button
+                    key={`${result.type}-${result.id}`}
+                    onClick={() => {
+                      router.push(result.path);
+                      setIsOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-blue-600/10 border border-white/5 hover:border-blue-500/30 rounded-2xl group transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-blue-400 group-hover:bg-blue-500/5 transition-colors">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-white font-black tracking-tight">{result.title}</p>
+                        <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">{result.type}</p>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <p className="text-white font-black tracking-tight">{result.title}</p>
-                      <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">{result.type}</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-zinc-700 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                </button>
-              );
-            })
+                    <ArrowRight className="w-4 h-4 text-zinc-700 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                  </button>
+                );
+              })}
+            </div>
           ) : query.length >= 2 ? (
             <div className="p-12 text-center">
               <Shield className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
-              <p className="text-zinc-600 font-black uppercase tracking-widest text-xs">No encrypted records match your query</p>
+              <p className="text-zinc-600 font-black uppercase tracking-widest text-xs">No records match your query</p>
             </div>
           ) : (
-            <div className="p-8">
-              <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-4 ml-2">Quick Navigation</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { name: 'Dashboard', path: '/dashboard', icon: Shield },
-                  { name: 'Vault', path: '/vault', icon: Key },
-                  { name: 'Analyzer', path: '/analyzer', icon: ShieldAlert },
-                  { name: 'Identity Protect', path: '/identity', icon: ShieldCheck },
-                  { name: 'Warranty', path: '/warranty', icon: FileText },
-                  { name: 'Medical', path: '/medical', icon: Stethoscope },
-                ].map((item) => (
-                  <button
-                    key={item.name}
-                    onClick={() => { router.push(item.path); setIsOpen(false); }}
-                    className="flex items-center gap-3 p-4 bg-black/40 hover:bg-white/5 border border-white/5 rounded-2xl text-left transition-all"
-                  >
-                    <item.icon className="w-4 h-4 text-zinc-500" />
-                    <span className="text-sm font-bold text-white">{item.name}</span>
-                  </button>
-                ))}
+            <>
+              {user?.role === 'ADMIN' && (
+                <div className="space-y-3">
+                   <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest ml-2">Admin Quick Actions</p>
+                   <div className="grid grid-cols-3 gap-3">
+                      <button onClick={() => handleAction('PROTOCOL', 'LOCKDOWN')} className="flex items-center gap-3 p-4 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 rounded-2xl text-left transition-all group">
+                         <Lock className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
+                         <span className="text-xs font-black text-red-500 uppercase tracking-tighter">Emergency Lockdown</span>
+                      </button>
+                      <button onClick={() => handleAction('PROTOCOL', 'MAINTENANCE')} className="flex items-center gap-3 p-4 bg-amber-600/10 hover:bg-amber-600/20 border border-amber-500/20 rounded-2xl text-left transition-all group">
+                         <Zap className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+                         <span className="text-xs font-black text-amber-500 uppercase tracking-tighter">Maintenance Mode</span>
+                      </button>
+                      <button onClick={() => { router.push('/admin/soc'); setIsOpen(false); }} className="flex items-center gap-3 p-4 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 rounded-2xl text-left transition-all group">
+                         <ShieldAlert className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
+                         <span className="text-xs font-black text-blue-500 uppercase tracking-tighter">Command Center</span>
+                      </button>
+                   </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest ml-2">Quick Navigation</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { name: 'Dashboard', path: user?.role === 'ADMIN' ? '/admin' : '/dashboard', icon: LayoutDashboard },
+                    { name: 'Vault', path: '/vault', icon: Key },
+                    { name: 'SOC Center', path: '/admin/soc', icon: ShieldAlert, adminOnly: true },
+                    { name: 'Private Verify', path: '/identity/private-verify', icon: Fingerprint },
+                    { name: 'Analyzer', path: '/analyzer', icon: Activity },
+                    { name: 'Security Health', path: '/security-health', icon: Target },
+                    { name: 'Medical Hub', path: '/medical', icon: Stethoscope },
+                  ].filter(i => !i.adminOnly || user?.role === 'ADMIN').map((item: any) => (
+                    <button
+                      key={item.name}
+                      onClick={() => { router.push(item.path); setIsOpen(false); }}
+                      className="flex items-center gap-3 p-4 bg-black/40 hover:bg-white/5 border border-white/5 rounded-2xl text-left transition-all"
+                    >
+                      <item.icon className="w-4 h-4 text-zinc-500" />
+                      <span className="text-xs font-bold text-white">{item.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
         
@@ -168,3 +230,4 @@ export default function CommandPalette() {
     </div>
   );
 }
+

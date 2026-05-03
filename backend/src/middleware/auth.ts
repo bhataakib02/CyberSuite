@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
 import prisma from '../lib/prisma';
+import { ProtocolService } from '../modules/admin/protocol.service';
 
 export interface AuthRequest extends Request {
     user?: {
@@ -8,6 +9,59 @@ export interface AuthRequest extends Request {
         sessionId: string;
         role: string;
     };
+}
+
+/**
+ * Global Protocol Enforcement Middleware
+ */
+export function protocolCheck(req: AuthRequest, res: Response, next: NextFunction) {
+    const { protocol, reason } = ProtocolService.getProtocol();
+
+    // 1. Lockdown Mode: Only ADMIN role allowed
+    if (protocol === 'LOCKDOWN') {
+        // We need to peek at the token if it exists to see if it's an admin
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+            try {
+                const token = authHeader.split(' ')[1];
+                const payload = verifyAccessToken(token);
+                if (payload.role === 'ADMIN') {
+                    return next();
+                }
+            } catch {
+                // Token invalid, fall through to block
+            }
+        }
+        return res.status(451).json({ 
+            error: 'SYSTEM_LOCKDOWN', 
+            message: `The system is currently under emergency lockdown: ${reason}`,
+            protocol 
+        });
+    }
+
+    // 2. Maintenance Mode: Non-admins are blocked from POST/PUT/DELETE
+    if (protocol === 'MAINTENANCE') {
+        const isWriteRequest = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+        if (isWriteRequest) {
+            const authHeader = req.headers.authorization;
+            if (authHeader?.startsWith('Bearer ')) {
+                try {
+                    const token = authHeader.split(' ')[1];
+                    const payload = verifyAccessToken(token);
+                    if (payload.role === 'ADMIN') {
+                        return next();
+                    }
+                } catch {}
+            }
+            return res.status(503).json({ 
+                error: 'SYSTEM_MAINTENANCE', 
+                message: `The system is in read-only maintenance mode: ${reason}`,
+                protocol 
+            });
+        }
+    }
+
+    next();
 }
 
 export async function authenticate(req: AuthRequest, res: Response, next: NextFunction) {

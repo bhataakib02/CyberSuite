@@ -26,6 +26,7 @@ import subscriptionRouter from './modules/subscriptions/subscriptions.routes';
 import legacyRouter from './modules/legacy/legacy.routes';
 import disasterRouter from './modules/disaster/disaster.routes';
 import groupsRouter from './modules/groups/groups.routes';
+import webauthnRouter from './modules/auth/webauthn.routes';
 import expensesRouter from './modules/expenses/expenses.routes';
 import consultationRouter from './modules/consultations/consultation.routes';
 import consultationChatRouter from './modules/consultations/consultationChat.routes';
@@ -61,14 +62,25 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+import { honeypot } from './middleware/honeypot';
+
 // ── Static uploads ────────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+// ── Honeypot (Active Defense) ────────────────────────────────────────────────
+app.use(honeypot);
+
+import { protocolCheck } from './middleware/auth';
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => sendSuccess(res, { status: 'ok' }));
 
+// ── Protocol Check (Global) ───────────────────────────────────────────────────
+app.use('/api', protocolCheck as any);
+
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/auth/webauthn', webauthnRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/vault', vaultRouter);
 app.use('/api/analyze', analyzerRouter);
