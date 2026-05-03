@@ -80,34 +80,38 @@ export default function LoginPage() {
 
     try {
       // 1. Get options from server
-      const optionsRes = await fetch('http://localhost:5000/api/auth/login-options', {
+      const optionsRes = await fetch('http://localhost:5000/api/auth/webauthn/login/options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const { options, userId } = await optionsRes.json();
+      const data = await optionsRes.json();
 
-      if (!optionsRes.ok) throw new Error(options.error || 'Failed to get security key options');
+      if (!optionsRes.ok) throw new Error(data.error || data.message || 'Failed to get security key options');
+
+      const { options, userId } = data.data || data;
 
       // 2. Start authentication ceremony
       const asseResp = await startAuthentication(options);
 
       // 3. Verify response with server
-      const verifyRes = await fetch('http://localhost:5000/api/auth/login-verify', {
+      const verifyRes = await fetch('http://localhost:5000/api/auth/webauthn/login/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: asseResp, userId }),
       });
-      const data = await verifyRes.json();
+      const verifyData = await verifyRes.json();
 
-      const tokenData = data.data?.accessToken || data.accessToken;
-      const userData = data.data?.user || data.user;
+      if (!verifyRes.ok) throw new Error(verifyData.error || verifyData.message || 'Security key authentication failed');
+
+      const tokenData = verifyData.data?.accessToken || verifyData.accessToken;
+      const userData = verifyData.data?.user || verifyData.user;
 
       if (tokenData) {
         useAuthStore.getState().login(userData, tokenData);
         router.push(getDashboardRoute(userData?.role));
       } else {
-        throw new Error(data.error || 'Security key authentication failed');
+        throw new Error('Authentication response missing token');
       }
     } catch (err: any) {
       setError(err.message);

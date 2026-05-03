@@ -64,7 +64,7 @@ router.get('/register/options', authenticate, async (req: AuthRequest, res) => {
 
 router.post('/register/verify', authenticate, async (req: AuthRequest, res) => {
   try {
-    const { body }: { body: RegistrationResponseJSON } = req.body;
+    const body: RegistrationResponseJSON = req.body;
     const userId = req.user!.userId;
     const expectedChallenge = currentChallenges.get(userId);
 

@@ -65,6 +65,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const allRoles = ['USER', 'ADMIN', 'STUDENT', 'ACADEMIC', 'DOCTOR', 'LAWYER', 'HEALTHCARE_STAFF', 'EMERGENCY_PROFILE'];
 
   const navigation = [
@@ -189,19 +194,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Redirect if not authenticated (basic check)
-    // In a real app, this should also check token validity or be done in middleware
-    if (!isAuthenticated && typeof window !== 'undefined') {
+    if (mounted && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [mounted, isAuthenticated, router]);
 
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
 
-  if (!isAuthenticated) return null; // Avoid flicker before redirect
+  if (!mounted) return null;
+  if (!isAuthenticated) return null;
 
   return (
     <div className="min-h-screen bg-black text-white font-sans flex">

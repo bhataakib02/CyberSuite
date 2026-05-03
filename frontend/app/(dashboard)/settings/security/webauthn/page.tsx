@@ -22,17 +22,20 @@ export default function WebAuthnSettings() {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     fetchAuthenticators();
   }, []);
 
   const fetchAuthenticators = async () => {
     try {
-      const res = await apiFetch('/auth/me'); // I'll assume this returns user with authenticators
+      const res = await apiFetch('/auth/me');
       if (res.ok) {
-        const user = await res.json();
-        setAuthenticators(user.authenticators || []);
+        const json = await res.json();
+        const userData = json.data?.user || json.user;
+        setAuthenticators(userData?.authenticators || []);
       }
     } catch (err) {
       console.error('Failed to fetch authenticators', err);
@@ -40,6 +43,8 @@ export default function WebAuthnSettings() {
       setLoading(false);
     }
   };
+
+  if (!mounted) return null;
 
   const handleRegister = async () => {
     setRegistering(true);
